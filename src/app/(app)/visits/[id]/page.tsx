@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { VisitStatusBadge } from "@/components/shared/StatusBadge";
 import { VitalSignsForm, parseVitals, type VitalFields } from "@/components/shared/VitalSignsForm";
 import { toast } from "sonner";
+import Link from "next/link";
+import { formatVisitReasons } from "@/lib/visit-reasons";
 
 export default function VisitDetailPage() {
   const { id } = useParams();
@@ -74,8 +76,16 @@ export default function VisitDetailPage() {
         <div>
           <h2 className="text-xl font-black text-primary">{String(visit.visitNumber)}</h2>
           <p className="text-sm font-bold text-muted">{String(visit.visitorName ?? "")}</p>
+          <p className="mt-1 text-xs text-muted">{formatVisitReasons(visit.reasonsJson)}</p>
         </div>
-        <VisitStatusBadge status={String(visit.status)} />
+        <div className="flex flex-col items-end gap-2">
+          <VisitStatusBadge status={String(visit.status)} />
+          {visit.visitorType === "STUDENT" && visit.visitorId ? (
+            <Link href={`/students/${String(visit.visitorId)}`} className="text-xs font-bold text-accent">
+              الملف الطلابي
+            </Link>
+          ) : null}
+        </div>
       </div>
       {visit.status === "OPEN" && (
         <>

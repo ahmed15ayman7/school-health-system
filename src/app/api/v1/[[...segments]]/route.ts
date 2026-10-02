@@ -37,6 +37,7 @@ function mapResource(pathname: string): Resource {
 function mapAction(method: string, pathname: string): "create" | "read" | "update" | "delete" | "export" | "approve" {
   if (pathname.includes("/decision") || pathname.includes("/adjustments")) return "approve";
   if (pathname.includes("/export")) return "export";
+  if (method === "POST" && (pathname.endsWith("/close") || pathname.endsWith("/vitals"))) return "update";
   if (method === "POST") return "create";
   if (method === "PUT" || method === "PATCH") return "update";
   if (method === "DELETE") return "delete";

@@ -11,7 +11,13 @@ import { administerMedication } from "@/server/pharmacy/mar.service";
 import { detectFrequentVisitors } from "@/server/alerts/frequent.service";
 import { parseStudentImport } from "@/server/import/excel.service";
 import { generateQrDataUrl } from "@/server/qr/qr.service";
-import { getVisitById, createVisit, closeVisit, upsertVisitVitals } from "@/server/visits/visits.service";
+import {
+  getVisitById,
+  createVisit,
+  closeVisit,
+  upsertVisitVitals,
+  listVisits,
+} from "@/server/visits/visits.service";
 import {
   getReferralById,
   getReferralStats,
@@ -188,15 +194,10 @@ export async function handleApi(
     return ok({ total });
   }
 
-  if (resource === "visits" && method === "GET") {
-    const data = await prisma.visit.findMany({
-      where: { ...scope, isDeleted: false },
-      include: { vitalSigns: true },
-      orderBy: { dateTime: "desc" },
-      take: pageSize,
-      skip,
-    });
-    return ok(data);
+  if (resource === "visits" && method === "GET" && !params?.id && !pathname.includes("/stats")) {
+    const total = await prisma.visit.count({ where: { ...scope, isDeleted: false } });
+    const data = await listVisits(actor, { skip, take: pageSize, clinicScope: scope });
+    return ok(data, paginationMeta(total, page, pageSize));
   }
 
   if (resource === "visits" && method === "POST" && !pathname.endsWith("/close") && !pathname.endsWith("/vitals")) {
@@ -206,6 +207,7 @@ export async function handleApi(
       return ok(created, undefined, 201);
     } catch (e) {
       if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات الزيارة غير صالحة", 400);
+      if (e instanceof Error && e.message === "CLINIC_FORBIDDEN") return fail("CLINIC_FORBIDDEN", "لا يمكن الوصول لبيانات عيادة أخرى", 403);
       throw e;
     }
   }

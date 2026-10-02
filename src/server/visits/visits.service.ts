@@ -5,7 +5,8 @@ import { writeAudit } from "@/lib/audit";
 import type { ActorContext } from "@/server/context";
 import type { Prisma } from "@prisma/client";
 import { closeVisitSchema, createVisitSchema } from "@/lib/validations/visit";
-import { vitalSignsSchema } from "@/lib/validations/vitals";
+import { vitalSignsSchema, type VitalSignsInput } from "@/lib/validations/vitals";
+import { formatVisitReasons } from "@/lib/visit-reasons";
 
 function buildReasonsJson(body: {
   reasons?: Record<string, unknown>;
@@ -15,6 +16,59 @@ function buildReasonsJson(body: {
   if (body.reasons) return body.reasons;
   const list = body.reasonList ?? [];
   return { selected: list, other: body.otherReason ?? null };
+}
+
+function cleanVitals(raw?: VitalSignsInput): VitalSignsInput | undefined {
+  if (!raw) return undefined;
+  const out: VitalSignsInput = {};
+  for (const [key, val] of Object.entries(raw) as [keyof VitalSignsInput, number | null | undefined][]) {
+    if (typeof val === "number" && !Number.isNaN(val)) out[key] = val;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+export async function listVisits(
+  actor: ActorContext,
+  opts: { skip: number; take: number; clinicScope?: Record<string, unknown> },
+) {
+  const rows = await prisma.visit.findMany({
+    where: { ...(opts.clinicScope ?? {}), isDeleted: false },
+    include: { vitalSigns: true },
+    orderBy: { dateTime: "desc" },
+    take: opts.take,
+    skip: opts.skip,
+  });
+
+  const studentIds = rows.filter((v) => v.visitorType === "STUDENT").map((v) => v.visitorId);
+  const employeeIds = rows.filter((v) => v.visitorType === "EMPLOYEE").map((v) => v.visitorId);
+  const [students, employees] = await Promise.all([
+    studentIds.length
+      ? prisma.student.findMany({
+          where: { id: { in: studentIds } },
+          select: { id: true, name: true, academicNumber: true, photoUrl: true },
+        })
+      : [],
+    employeeIds.length
+      ? prisma.employee.findMany({
+          where: { id: { in: employeeIds } },
+          select: { id: true, name: true, employeeNumber: true },
+        })
+      : [],
+  ]);
+  const studentMap = new Map(students.map((s) => [s.id, s]));
+  const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+  return rows.map((v) => {
+    const student = v.visitorType === "STUDENT" ? studentMap.get(v.visitorId) : undefined;
+    const employee = v.visitorType === "EMPLOYEE" ? employeeMap.get(v.visitorId) : undefined;
+    return {
+      ...v,
+      visitorName: student?.name ?? employee?.name ?? "—",
+      academicNumber: student?.academicNumber,
+      photoUrl: student?.photoUrl,
+      reasonsSummary: formatVisitReasons(v.reasonsJson),
+    };
+  });
 }
 
 export async function getVisitById(actor: ActorContext, id: string) {
@@ -42,7 +96,11 @@ export async function getVisitById(actor: ActorContext, id: string) {
 }
 
 export async function createVisit(actor: ActorContext, raw: unknown) {
-  const parsed = createVisitSchema.safeParse(raw);
+  const pre = typeof raw === "object" && raw !== null ? { ...(raw as Record<string, unknown>) } : raw;
+  if (pre && typeof pre === "object" && "vitals" in pre) {
+    pre.vitals = cleanVitals(pre.vitals as VitalSignsInput);
+  }
+  const parsed = createVisitSchema.safeParse(pre);
   if (!parsed.success) throw new Error("VALIDATION_ERROR");
   const body = parsed.data;
   assertClinicAccess(actor.role, actor.clinicId, body.clinicId);

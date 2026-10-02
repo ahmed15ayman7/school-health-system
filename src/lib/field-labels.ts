@@ -13,6 +13,8 @@ const LABELS: Record<string, string> = {
   department: "القسم",
   jobTitle: "المسمى",
   visitNumber: "رقم الزيارة",
+  visitorName: "الزائر",
+  reasonsSummary: "سبب الزيارة",
   dateTime: "التاريخ",
   referralTime: "وقت التحويل",
   visitorType: "نوع الزائر",
@@ -90,7 +92,7 @@ export function formatCellValue(key: string, value: unknown): string {
 export const LIST_COLUMNS: Record<string, string[]> = {
   students: ["academicNumber", "name", "grade", "class", "guardianName", "isActive"],
   employees: ["employeeNumber", "name", "department", "jobTitle", "phone", "isActive"],
-  visits: ["visitNumber", "dateTime", "visitorType", "triageLevel", "status"],
+  visits: ["visitNumber", "dateTime", "visitorName", "reasonsSummary", "triageLevel", "status"],
   referrals: ["referralTime", "severity", "status", "reasonCategory", "student"],
   emergency: ["eventTime", "severity", "status", "location"],
   medications: ["name", "genericName", "form", "strength", "isActive"],
@@ -140,6 +142,7 @@ const GRID_SUBTITLE: Record<string, string> = {
   employees: "employeeNumber",
   settings: "username",
   search: "recordType",
+  visits: "visitorName",
 };
 
 const GRID_TAGS: Record<string, string[]> = {

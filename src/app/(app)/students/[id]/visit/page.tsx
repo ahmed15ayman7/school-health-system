@@ -1,17 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { RecordDetailPanel } from "@/components/shared/RecordDetailPanel";
-import { useParams } from "next/navigation";
-
-export default function Page() {
-  const params = useParams();
-  const id = params?.id as string | undefined;
-  return (
-    <RecordDetailPanel
-      title="زيارة طالب"
-      apiPath="/api/v1/students"
-      recordId={id}
-      backHref="/students"
-    />
-  );
+export default async function StudentVisitPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/visits/new?studentId=${id}`);
 }

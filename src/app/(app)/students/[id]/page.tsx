@@ -45,8 +45,8 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
               السجل المرضي
             </Button>
           </Link>
-          <Link href={`/students/${id}/visit`}>
-            <Button size="sm">زيارة</Button>
+          <Link href={`/visits/new?studentId=${id}`}>
+            <Button size="sm">تسجيل زيارة</Button>
           </Link>
         </div>
       </div>
