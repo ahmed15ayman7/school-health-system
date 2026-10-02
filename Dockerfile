@@ -1,4 +1,18 @@
 # syntax=docker/dockerfile:1
+#
+# بناء وتشغيل (بدون docker compose):
+#   docker build -t school-health .
+#   docker run -d --name school-health -p 3000:3000 \
+#     -e DATABASE_URL='postgresql://...' \
+#     -e AUTH_SECRET='...' \
+#     -e AUTH_URL='https://your-domain' \
+#     -e APP_TIMEZONE='Asia/Qatar' \
+#     -e RUN_DB_PUSH=true \
+#     -v school-health-uploads:/app/uploads \
+#     --restart unless-stopped \
+#     school-health
+#
+# RUN_DB_PUSH=true مرة واحدة عند أول نشر فقط. البيانات التجريبية: npm run db:seed من جهازك ضد نفس DATABASE_URL.
 
 FROM node:20-bookworm-slim AS base
 RUN apt-get update \
