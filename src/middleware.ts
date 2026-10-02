@@ -17,12 +17,14 @@ export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const isLogin = pathname.startsWith("/login");
   const isApiAuth = pathname.startsWith("/api/auth");
+  const isHealth =
+    pathname === "/api/v1/health" || pathname === "/api/health";
   const isPublic =
     pathname.startsWith("/_next") ||
     pathname === "/sw.js" ||
     pathname.startsWith("/templates/") ||
     pathname === "/manifest.webmanifest" ||
-    pathname === "/api/v1/health";
+    isHealth;
 
   if (isApiAuth || isPublic) return NextResponse.next();
 
