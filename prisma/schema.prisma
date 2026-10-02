@@ -1,0 +1,1308 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  MEDICAL_MANAGER
+  HEAD_NURSE
+  NURSE
+  PHARMACY
+  CANTEEN_INSPECTOR
+  HR
+  SCHOOL_ADMIN
+  PSYCHOLOGIST
+  SOCIAL_WORKER
+  TEACHER
+  VIEWER
+}
+
+enum VisitorType {
+  STUDENT
+  EMPLOYEE
+}
+
+enum TriageLevel {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum VisitStatus {
+  OPEN
+  CLOSED
+  REFERRED
+}
+
+enum VisitOutcome {
+  TREAT_AND_RETURN
+  OBSERVE_IN_CLINIC
+  SENT_HOME
+  GUARDIAN_PICKUP
+  DOCTOR_REFERRAL
+  HOSPITAL_REFERRAL
+  AMBULANCE
+  EMERGENCY
+  FOLLOW_UP
+}
+
+enum StudentReferralStatus {
+  PENDING
+  RECEIVED
+  IN_TREATMENT
+  COMPLETED
+}
+
+enum ReferralSeverity {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum ReferralReasonCategory {
+  SYMPTOMS
+  INJURY
+  EMERGENCY
+  CHRONIC_FOLLOWUP
+  SCHEDULED_MEDICATION
+  GENERAL_COMPLAINT
+  OTHER
+}
+
+enum TransactionType {
+  IN
+  OUT
+  TRANSFER
+  RETURN
+  DAMAGE
+  EXPIRE
+  ADJUSTMENT
+}
+
+enum RecommendationStatus {
+  PENDING
+  APPROVED
+  MODIFIED
+  REJECTED
+}
+
+enum CircularPriority {
+  NORMAL
+  URGENT
+  VERY_URGENT
+}
+
+enum CanteenItemResult {
+  COMPLIANT
+  NEEDS_FOLLOWUP
+  NEAR_EXPIRY
+  NON_COMPLIANT
+  DISCARDED
+}
+
+enum ResponseLevel {
+  CONSCIOUS
+  RESPONDS_TO_PAIN
+  UNRESPONSIVE
+}
+
+enum PsychSessionType {
+  INDIVIDUAL
+  GROUP
+  EMERGENCY
+  FOLLOWUP
+}
+
+enum SocialCaseType {
+  FINANCIAL
+  FAMILY
+  BEHAVIORAL
+  HEALTH
+  ACADEMIC
+}
+
+enum AssessmentTool {
+  GAD7
+  PHQ9
+  ADHD_RATING
+  ADAPTIVE_BEHAVIOR
+  PROJECTIVE
+}
+
+enum InternalReferralTarget {
+  PSYCHOLOGY
+  SOCIAL
+  CLINIC
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum OutboundMessageStatus {
+  SIMULATED
+  SENT
+  FAILED
+}
+
+enum OutboundChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+  PUSH
+}
+
+enum OwnerType {
+  STUDENT
+  EMPLOYEE
+}
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  ON_LEAVE
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  FULL_DAY
+}
+
+enum SafetyInspectionType {
+  FIRST_AID
+  AED
+  EMERGENCY_EXIT
+  GENERAL
+}
+
+enum NotificationType {
+  IN_APP
+  STOCK
+  EXPIRY
+  EMERGENCY
+  RECOMMENDATION
+  PERIODIC_CHECK
+  REFERRAL
+  FREQUENT_VISITOR
+}
+
+enum MedicationCategory {
+  MEDICINE
+  SUPPLY
+}
+model School {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinics  Clinic[]
+  canteens Canteen[]
+
+  @@map("schools")
+}
+
+model Clinic {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  name      String
+  location  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school              School               @relation(fields: [schoolId], references: [id])
+  users               User[]
+  students            Student[]
+  employees           Employee[]
+  visits              Visit[]
+  studentReferrals    StudentReferral[]
+  medications         Medication[]
+  nurseProfiles       NurseProfile[]
+  shifts              Shift[]
+  firstAidKits        FirstAidKit[]
+  aedDevices          AedDevice[]
+  safetyInspections   SafetyInspection[]
+
+  @@map("clinics")
+}
+
+model Canteen {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  name      String
+  location  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school      School               @relation(fields: [schoolId], references: [id])
+  inspections CanteenInspection[]
+
+  @@map("canteens")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  username           String    @unique
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  role               UserRole
+  roleId             String?   @map("role_id") @db.Uuid
+  clinicId           String?   @map("clinic_id") @db.Uuid
+  fullName           String    @map("full_name")
+  phone              String?
+  isActive           Boolean   @default(true) @map("is_active")
+  failedLoginAttempts Int      @default(0) @map("failed_login_attempts")
+  lockedUntil        DateTime? @map("locked_until")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  roleRecord       Role?              @relation(fields: [roleId], references: [id])
+  clinic           Clinic?            @relation(fields: [clinicId], references: [id])
+  refreshTokens    RefreshToken[]
+  auditLogs        AuditLog[]
+  visitsAsNurse    Visit[]            @relation("VisitNurse")
+  referralsCreated StudentReferral[]  @relation("ReferralCreator")
+  marRecords       MedicationAdministration[]
+  inventoryTx      InventoryTransaction[]
+  circularsIssued  Circular[]
+  circularReceipts CircularReceipt[]
+  notifications    Notification[]
+  psychologySessions PsychologySession[]
+  socialCases      SocialCase[]
+  internalReferralsFrom InternalReferral[] @relation("InternalReferFrom")
+  internalReferralsTo   InternalReferral[] @relation("InternalReferTo")
+  nurseProfile     NurseProfile?
+  canteenInspections CanteenInspection[]
+  safetyInspections SafetyInspection[]
+  importJobs       ImportJob[]
+  savedFilters     SavedFilter[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  deviceInfo String?  @map("device_info")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  actionType   String   @map("action_type")
+  tableName    String   @map("table_name")
+  recordId     String?  @map("record_id") @db.Uuid
+  oldValueJson Json?    @map("old_value_json")
+  newValueJson Json?    @map("new_value_json")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([tableName])
+  @@map("audit_logs")
+}
+
+model Counter {
+  scope String
+  year  Int
+  value Int    @default(0)
+
+  @@id([scope, year])
+  @@map("counters")
+}
+
+model IdempotencyKey {
+  key           String   @id
+  route         String
+  responseHash  String?  @map("response_hash")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("idempotency_keys")
+}
+
+model Student {
+  id              String    @id @default(uuid()) @db.Uuid
+  academicNumber  String    @unique @map("academic_number")
+  qrCode          String    @unique @map("qr_code")
+  name            String
+  grade           String
+  class           String
+  clinicId        String    @map("clinic_id") @db.Uuid
+  guardianName    String    @map("guardian_name")
+  guardianPhone   String    @map("guardian_phone")
+  guardianPhoneAlt String?  @map("guardian_phone_alt")
+  guardianEmail   String?   @map("guardian_email")
+  photoUrl        String?   @map("photo_url")
+  bloodType       String?   @map("blood_type")
+  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
+  gender          Gender?
+  isActive        Boolean   @default(true) @map("is_active")
+  isDeleted       Boolean   @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  clinic              Clinic                    @relation(fields: [clinicId], references: [id])
+  guardians           Guardian[]
+  studentReferrals    StudentReferral[]
+  psychologySessions  PsychologySession[]
+  socialCases         SocialCase[]
+  foodIncidentLinks   FoodIncidentStudent[]
+  frequentAlerts      FrequentVisitorAlert[]
+  guardianPrefs       GuardianNotificationPreference[]
+
+  @@index([academicNumber])
+  @@index([qrCode])
+  @@index([clinicId])
+  @@index([name])
+  @@map("students")
+}
+
+model Guardian {
+  id                      String   @id @default(uuid()) @db.Uuid
+  studentId               String   @map("student_id") @db.Uuid
+  name                    String
+  relationship            String
+  phone                   String
+  phoneAlt                String?  @map("phone_alt")
+  email                   String?
+  address                 String?
+  notificationPreferences Json     @default("{}") @map("notification_preferences")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("guardians")
+}
+
+model Employee {
+  id              String    @id @default(uuid()) @db.Uuid
+  employeeNumber  String    @unique @map("employee_number")
+  name            String
+  department      String
+  jobTitle        String    @map("job_title")
+  clinicId        String?   @map("clinic_id") @db.Uuid
+  phone           String
+  phoneAlt        String?   @map("phone_alt")
+  email           String?
+  hireDate        DateTime? @map("hire_date") @db.Date
+  employmentStatus String   @default("active") @map("employment_status")
+  bloodType       String?   @map("blood_type")
+  isActive        Boolean   @default(true) @map("is_active")
+  isDeleted       Boolean   @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  clinic                Clinic?                  @relation(fields: [clinicId], references: [id])
+  medicalRecommendations MedicalRecommendation[]
+  foodIncidentLinks     FoodIncidentEmployee[]
+  nurseProfile          NurseProfile?
+
+  @@index([employeeNumber])
+  @@index([clinicId])
+  @@map("employees")
+}
+model MedicalProfile {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerType OwnerType @map("owner_type")
+  ownerId   String    @map("owner_id") @db.Uuid
+  notes     String?
+  bloodType String?   @map("blood_type")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  allergies              Allergy[]
+  chronicConditions      ChronicCondition[]
+  continuousMedications  ContinuousMedication[]
+  vaccinations           Vaccination[]
+  growthMeasurements     GrowthMeasurement[]
+  visionScreenings       VisionScreening[]
+  injuries               Injury[]
+
+  @@unique([ownerType, ownerId])
+  @@map("medical_profiles")
+}
+
+model Allergy {
+  id        String          @id @default(uuid()) @db.Uuid
+  profileId String          @map("profile_id") @db.Uuid
+  type      String
+  severity  AllergySeverity
+  notes     String?
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("allergies")
+}
+
+model ChronicCondition {
+  id            String    @id @default(uuid()) @db.Uuid
+  profileId     String    @map("profile_id") @db.Uuid
+  diagnosis     String
+  diagnosisDate DateTime? @map("diagnosis_date") @db.Date
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("chronic_conditions")
+}
+
+model ContinuousMedication {
+  id             String   @id @default(uuid()) @db.Uuid
+  profileId      String   @map("profile_id") @db.Uuid
+  medicationName String   @map("medication_name")
+  dose           String?
+  frequency      String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("continuous_medications")
+}
+
+model Vaccination {
+  id               String    @id @default(uuid()) @db.Uuid
+  profileId        String    @map("profile_id") @db.Uuid
+  vaccineName      String    @map("vaccine_name")
+  doseNumber       Int?      @map("dose_number")
+  administeredDate DateTime  @map("administered_date") @db.Date
+  source           String?
+  attachmentUrl    String?   @map("attachment_url")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("vaccinations")
+}
+
+model GrowthMeasurement {
+  id         String   @id @default(uuid()) @db.Uuid
+  profileId  String   @map("profile_id") @db.Uuid
+  measuredAt DateTime @map("measured_at")
+  weightKg   Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  heightCm   Decimal? @map("height_cm") @db.Decimal(5, 2)
+  bmi        Decimal? @db.Decimal(5, 2)
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("growth_measurements")
+}
+
+model VisionScreening {
+  id              String    @id @default(uuid()) @db.Uuid
+  profileId       String    @map("profile_id") @db.Uuid
+  screenedAt      DateTime  @map("screened_at")
+  rightEye        String?   @map("right_eye")
+  leftEye         String?   @map("left_eye")
+  withGlasses     String?   @map("with_glasses")
+  withoutGlasses  String?   @map("without_glasses")
+  recommendation  String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("vision_screenings")
+}
+
+model Injury {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
+  injuryDate  DateTime @map("injury_date")
+  description String
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile MedicalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("injuries")
+}
+
+model Visit {
+  id              String        @id @default(uuid()) @db.Uuid
+  visitNumber     String        @unique @map("visit_number")
+  dateTime        DateTime      @map("date_time")
+  clinicId        String        @map("clinic_id") @db.Uuid
+  nurseId         String        @map("nurse_id") @db.Uuid
+  visitorType     VisitorType   @map("visitor_type")
+  visitorId       String        @map("visitor_id") @db.Uuid
+  reasonsJson     Json          @map("reasons_json")
+  triageLevel     TriageLevel   @map("triage_level")
+  triageReason    String?       @map("triage_reason")
+  triageAction    String?       @map("triage_action")
+  status          VisitStatus   @default(OPEN)
+  outcome         VisitOutcome?
+  entryTime       DateTime      @map("entry_time")
+  exitTime        DateTime?     @map("exit_time")
+  durationMinutes Int?          @map("duration_minutes")
+  procedure       String?
+  recommendations String?
+  notes           String?
+  isDeleted       Boolean       @default(false) @map("is_deleted")
+  deletedAt       DateTime?     @map("deleted_at")
+  deletedBy       String?       @map("deleted_by") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  nurse        User          @relation("VisitNurse", fields: [nurseId], references: [id])
+  vitalSigns   VitalSign?
+  diagnoses    Diagnosis[]
+  treatments   Treatment[]
+  referrals    Referral[]
+  recommendationsMed MedicalRecommendation[]
+
+  @@index([dateTime])
+  @@index([clinicId])
+  @@index([visitorType, visitorId])
+  @@index([status])
+  @@map("visits")
+}
+
+model VitalSign {
+  id                     String   @id @default(uuid()) @db.Uuid
+  visitId                String   @unique @map("visit_id") @db.Uuid
+  temperature            Decimal? @db.Decimal(4, 2)
+  bloodPressureSystolic  Int?     @map("blood_pressure_systolic")
+  bloodPressureDiastolic Int?     @map("blood_pressure_diastolic")
+  pulse                  Int?
+  respirationRate        Int?     @map("respiration_rate")
+  spo2                   Int?
+  bloodSugar             Int?     @map("blood_sugar")
+  weight                 Decimal? @db.Decimal(5, 2)
+  height                 Decimal? @db.Decimal(5, 2)
+  bmi                    Decimal? @db.Decimal(5, 2)
+  recordedAt             DateTime @default(now()) @map("recorded_at")
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("vital_signs")
+}
+
+model Diagnosis {
+  id            String  @id @default(uuid()) @db.Uuid
+  visitId       String  @map("visit_id") @db.Uuid
+  diagnosisCode String? @map("diagnosis_code")
+  diagnosisName String  @map("diagnosis_name")
+  notes         String?
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("diagnoses")
+}
+
+model Treatment {
+  id            String @id @default(uuid()) @db.Uuid
+  visitId       String @map("visit_id") @db.Uuid
+  treatmentType String @map("treatment_type")
+  description   String
+  notes         String?
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("treatments")
+}
+
+model Referral {
+  id           String    @id @default(uuid()) @db.Uuid
+  visitId      String    @map("visit_id") @db.Uuid
+  referralType String    @map("referral_type")
+  hospitalName String?   @map("hospital_name")
+  doctorName   String?   @map("doctor_name")
+  referralDate DateTime? @map("referral_date")
+  notes        String?
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("referrals")
+}
+
+model StudentReferral {
+  id                  String                @id @default(uuid()) @db.Uuid
+  referralNumber      String                @unique @map("referral_number")
+  studentId           String                @map("student_id") @db.Uuid
+  referredById        String                @map("referred_by") @db.Uuid
+  referredByName      String                @map("referred_by_name")
+  referredByRole      String                @map("referred_by_role")
+  reasonCategory      ReferralReasonCategory @map("reason_category")
+  reasonDetails       String?               @map("reason_details")
+  severity            ReferralSeverity      @default(NORMAL)
+  status              StudentReferralStatus @default(PENDING)
+  referralTime        DateTime              @default(now()) @map("referral_time")
+  receivedTime        DateTime?             @map("received_time")
+  treatmentStartTime  DateTime?             @map("treatment_start_time")
+  treatmentEndTime    DateTime?             @map("treatment_end_time")
+  departureTime       DateTime?             @map("departure_time")
+  waitingMinutes      Int?                  @map("waiting_minutes")
+  treatmentMinutes    Int?                  @map("treatment_minutes")
+  totalMinutes        Int?                  @map("total_minutes")
+  diagnosis           String?
+  procedure           String?
+  recommendations     String?
+  outcome             VisitOutcome?
+  guardianNotified    Boolean               @default(false) @map("guardian_notified")
+  guardianNotifiedAt  DateTime?             @map("guardian_notification_time")
+  clinicId            String                @map("clinic_id") @db.Uuid
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  student    Student @relation(fields: [studentId], references: [id])
+  referredBy User    @relation("ReferralCreator", fields: [referredById], references: [id])
+  clinic     Clinic  @relation(fields: [clinicId], references: [id])
+
+  @@index([status, referralTime])
+  @@index([studentId])
+  @@map("student_referrals")
+}
+
+model EmergencyCase {
+  id                   String         @id @default(uuid()) @db.Uuid
+  caseNumber           String         @unique @map("case_number")
+  eventTime            DateTime       @map("event_time")
+  location             String
+  visitorType          VisitorType    @map("visitor_type")
+  visitorId            String         @map("visitor_id") @db.Uuid
+  vitalSignsJson       Json?          @map("vital_signs_json")
+  interventionsJson    Json?          @map("interventions_json")
+  medicationsUsedJson  Json?          @map("medications_used_json")
+  responseLevel        ResponseLevel? @map("response_level")
+  referralDecision     Boolean?       @map("referral_decision")
+  guardianContactTime  DateTime?      @map("guardian_contact_time")
+  ambulanceArrivalTime DateTime?      @map("ambulance_arrival_time")
+  hospitalName         String?        @map("hospital_name")
+  outcome              String?
+  status               String         @default("open")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  @@map("emergency_cases")
+}
+
+model MedicalRecommendation {
+  id                     String               @id @default(uuid()) @db.Uuid
+  employeeId             String               @map("employee_id") @db.Uuid
+  visitId                String?              @map("visit_id") @db.Uuid
+  recommendationType     String               @map("recommendation_type")
+  description            String
+  restDurationHours      Decimal?             @map("rest_duration_hours") @db.Decimal(5, 2)
+  functionalRestrictions Json?                @map("functional_restrictions_json")
+  followUpNeeded         Boolean              @default(false) @map("follow_up_needed")
+  recommendedById        String               @map("recommended_by") @db.Uuid
+  recommendedAt          DateTime             @default(now()) @map("recommended_at")
+  status                 RecommendationStatus @default(PENDING)
+
+  employee  Employee                  @relation(fields: [employeeId], references: [id])
+  visit     Visit?                    @relation(fields: [visitId], references: [id])
+  decisions RecommendationDecision[]
+
+  @@map("medical_recommendations")
+}
+
+model RecommendationDecision {
+  id               String               @id @default(uuid()) @db.Uuid
+  recommendationId String               @map("recommendation_id") @db.Uuid
+  decision         RecommendationStatus
+  decidedById      String               @map("decided_by") @db.Uuid
+  decidedAt        DateTime             @default(now()) @map("decided_at")
+  notes            String?
+
+  recommendation MedicalRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+
+  @@map("recommendation_decisions")
+}
+
+model PsychologySession {
+  id                   String           @id @default(uuid()) @db.Uuid
+  sessionNumber        String           @unique @map("session_number")
+  studentId            String           @map("student_id") @db.Uuid
+  sessionType          PsychSessionType @map("session_type")
+  sessionDate          DateTime         @map("session_date") @db.Date
+  durationMinutes      Int?             @map("duration_minutes")
+  chiefComplaint       String?          @map("chief_complaint")
+  clinicalObservations String?          @map("clinical_observations")
+  preliminaryDiagnosis String?          @map("preliminary_diagnosis")
+  severityLevel        String?          @map("severity_level")
+  treatmentPlan        String?          @map("treatment_plan")
+  recommendations      String?
+  nextAppointment      DateTime?        @map("next_appointment") @db.Date
+  status               String           @default("active")
+  counselorId          String           @map("counselor_id") @db.Uuid
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  student     Student                  @relation(fields: [studentId], references: [id])
+  counselor   User                     @relation(fields: [counselorId], references: [id])
+  assessments PsychologicalAssessment[]
+
+  @@map("psychology_sessions")
+}
+
+model PsychologicalAssessment {
+  id          String         @id @default(uuid()) @db.Uuid
+  sessionId   String         @map("session_id") @db.Uuid
+  tool        AssessmentTool
+  score       Decimal?       @db.Decimal(6, 2)
+  responsesJson Json?        @map("responses_json")
+  notes       String?
+  assessedAt  DateTime       @default(now()) @map("assessed_at")
+
+  session PsychologySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("psychological_assessments")
+}
+
+model SocialCase {
+  id                 String         @id @default(uuid()) @db.Uuid
+  caseNumber         String         @unique @map("case_number")
+  studentId          String         @map("student_id") @db.Uuid
+  referralSource     String         @map("referral_source")
+  caseType           SocialCaseType @map("case_type")
+  caseDescription    String         @map("case_description")
+  socialAssessment   String?        @map("social_assessment")
+  interventions      String?
+  financialAidAmount Decimal?       @map("financial_aid_amount") @db.Decimal(10, 2)
+  status             String         @default("open")
+  socialWorkerId     String         @map("social_worker_id") @db.Uuid
+  openedAt           DateTime       @default(now()) @map("opened_at")
+  closedAt           DateTime?      @map("closed_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  student      Student @relation(fields: [studentId], references: [id])
+  socialWorker User    @relation(fields: [socialWorkerId], references: [id])
+
+  @@map("social_cases")
+}
+
+model InternalReferral {
+  id           String               @id @default(uuid()) @db.Uuid
+  studentId    String               @map("student_id") @db.Uuid
+  fromUserId   String               @map("from_user_id") @db.Uuid
+  toTarget     InternalReferralTarget @map("to_target")
+  toUserId     String?              @map("to_user_id") @db.Uuid
+  reason       String
+  status       String               @default("pending")
+  notes        String?
+  createdAt    DateTime             @default(now()) @map("created_at")
+  completedAt  DateTime?            @map("completed_at")
+
+  fromUser User  @relation("InternalReferFrom", fields: [fromUserId], references: [id])
+  toUser   User? @relation("InternalReferTo", fields: [toUserId], references: [id])
+
+  @@map("internal_referrals")
+}
+
+model FrequentVisitorAlert {
+  id              String   @id @default(uuid()) @db.Uuid
+  studentId       String   @map("student_id") @db.Uuid
+  visitCount      Int      @map("visit_count")
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  periodType      String   @map("period_type")
+  acknowledged    Boolean  @default(false)
+  acknowledgedAt  DateTime? @map("acknowledged_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@map("frequent_visitor_alerts")
+}
+model Medication {
+  id               String             @id @default(uuid()) @db.Uuid
+  name             String
+  activeIngredient String?            @map("active_ingredient")
+  category         MedicationCategory @default(MEDICINE)
+  dosageForm       String?            @map("dosage_form")
+  concentration    String?
+  unit             String?
+  minQuantity      Int                @default(0) @map("min_quantity")
+  supplier         String?
+  storageLocation  String?            @map("storage_location")
+  clinicId         String             @map("clinic_id") @db.Uuid
+  qrCode           String?            @unique @map("qr_code")
+  isDeleted        Boolean            @default(false) @map("is_deleted")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  clinic           Clinic                     @relation(fields: [clinicId], references: [id])
+  batches          MedicationBatch[]
+  administrations  MedicationAdministration[]
+  inventoryTx      InventoryTransaction[]
+
+  @@index([clinicId])
+  @@map("medications")
+}
+
+model MedicationBatch {
+  id           String   @id @default(uuid()) @db.Uuid
+  medicationId String   @map("medication_id") @db.Uuid
+  batchNumber  String   @map("batch_number")
+  quantity     Int
+  expiryDate   DateTime @map("expiry_date") @db.Date
+  receivedAt   DateTime @default(now()) @map("received_at")
+
+  medication      Medication                   @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  administrations MedicationAdministration[]
+
+  @@index([medicationId, expiryDate])
+  @@map("medication_batches")
+}
+
+model InventoryTransaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  medicationId    String          @map("medication_id") @db.Uuid
+  transactionType TransactionType @map("transaction_type")
+  quantity        Int
+  batchNumber     String?         @map("batch_number")
+  fromClinicId    String?         @map("from_clinic_id") @db.Uuid
+  toClinicId      String?         @map("to_clinic_id") @db.Uuid
+  performedById   String          @map("performed_by") @db.Uuid
+  performedAt     DateTime        @default(now()) @map("performed_at")
+  notes           String?
+  approvedById    String?         @map("approved_by") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  medication  Medication @relation(fields: [medicationId], references: [id])
+  performedBy User       @relation(fields: [performedById], references: [id])
+
+  @@map("inventory_transactions")
+}
+
+model MedicationAdministration {
+  id                  String      @id @default(uuid()) @db.Uuid
+  visitorType         VisitorType @map("visitor_type")
+  visitorId           String      @map("visitor_id") @db.Uuid
+  medicationId        String      @map("medication_id") @db.Uuid
+  batchId             String?     @map("batch_id") @db.Uuid
+  dose                Decimal     @db.Decimal(10, 2)
+  unit                String
+  administrationTime  DateTime    @map("administration_time")
+  reason              String?
+  nurseId             String      @map("nurse_id") @db.Uuid
+  batchNumber         String?     @map("batch_number")
+  notes               String?
+  allergyOverride     Boolean     @default(false) @map("allergy_override")
+  isDeleted           Boolean     @default(false) @map("is_deleted")
+  deletedAt           DateTime?   @map("deleted_at")
+  deletedBy           String?     @map("deleted_by") @db.Uuid
+  createdAt           DateTime    @default(now()) @map("created_at")
+
+  medication Medication       @relation(fields: [medicationId], references: [id])
+  batch      MedicationBatch? @relation(fields: [batchId], references: [id])
+  nurse      User             @relation(fields: [nurseId], references: [id])
+
+  @@map("medication_administrations")
+}
+
+model CanteenInspection {
+  id             String   @id @default(uuid()) @db.Uuid
+  canteenId      String   @map("canteen_id") @db.Uuid
+  inspectionDate DateTime @map("inspection_date") @db.Date
+  inspectorId    String   @map("inspector_id") @db.Uuid
+  overallResult  String   @map("overall_result")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  canteen  Canteen       @relation(fields: [canteenId], references: [id])
+  inspector User         @relation(fields: [inspectorId], references: [id])
+  items    CanteenItem[]
+
+  @@map("canteen_inspections")
+}
+
+model CanteenItem {
+  id                String            @id @default(uuid()) @db.Uuid
+  inspectionId      String            @map("inspection_id") @db.Uuid
+  productName       String            @map("product_name")
+  quantity          String?
+  productionDate    DateTime?         @map("production_date") @db.Date
+  expiryDate        DateTime?         @map("expiry_date") @db.Date
+  packagingCondition String?          @map("packaging_condition")
+  storageCondition  String?           @map("storage_condition")
+  temperature       String?
+  generalCondition  String?           @map("general_condition")
+  result            CanteenItemResult
+  photoUrl          String?           @map("photo_url")
+
+  inspection CanteenInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@map("canteen_items")
+}
+
+model FoodIncident {
+  id                 String   @id @default(uuid()) @db.Uuid
+  discoveryTime      DateTime @map("discovery_time")
+  numberOfCases      Int      @map("number_of_cases")
+  symptomsJson       Json?    @map("symptoms_json")
+  suspectedMeal      String?  @map("suspected_meal")
+  canteenName        String?  @map("canteen_name")
+  actionsTaken       String?  @map("actions_taken")
+  notifiedPartiesJson Json?   @map("notified_parties_json")
+  investigationResult String?  @map("investigation_result")
+  correctiveActions  String?  @map("corrective_actions")
+  status             String   @default("open")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  students  FoodIncidentStudent[]
+  employees FoodIncidentEmployee[]
+
+  @@map("food_incidents")
+}
+
+model FoodIncidentStudent {
+  incidentId String @map("incident_id") @db.Uuid
+  studentId  String @map("student_id") @db.Uuid
+
+  incident FoodIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  student  Student      @relation(fields: [studentId], references: [id])
+
+  @@id([incidentId, studentId])
+  @@map("food_incident_students")
+}
+
+model FoodIncidentEmployee {
+  incidentId String @map("incident_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+
+  incident FoodIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id])
+
+  @@id([incidentId, employeeId])
+  @@map("food_incident_employees")
+}
+
+model NurseProfile {
+  id         String  @id @default(uuid()) @db.Uuid
+  userId     String  @unique @map("user_id") @db.Uuid
+  employeeId String? @unique @map("employee_id") @db.Uuid
+  clinicId   String  @map("clinic_id") @db.Uuid
+
+  user     User      @relation(fields: [userId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
+  clinic   Clinic    @relation(fields: [clinicId], references: [id])
+  shifts   Shift[]
+  attendance Attendance[]
+
+  @@map("nurse_profiles")
+}
+
+model Shift {
+  id        String    @id @default(uuid()) @db.Uuid
+  clinicId  String    @map("clinic_id") @db.Uuid
+  nurseId   String    @map("nurse_id") @db.Uuid
+  shiftDate DateTime  @map("shift_date") @db.Date
+  shiftType ShiftType @map("shift_type")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  clinic Clinic       @relation(fields: [clinicId], references: [id])
+  nurse  NurseProfile @relation(fields: [nurseId], references: [id])
+
+  @@map("shifts")
+}
+
+model Attendance {
+  id        String           @id @default(uuid()) @db.Uuid
+  nurseId   String           @map("nurse_id") @db.Uuid
+  date      DateTime         @db.Date
+  checkIn   DateTime?        @map("check_in")
+  checkOut  DateTime?        @map("check_out")
+  status    AttendanceStatus @default(PRESENT)
+  notes     String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  nurse NurseProfile @relation(fields: [nurseId], references: [id])
+
+  @@unique([nurseId, date])
+  @@map("attendance")
+}
+
+model FirstAidKit {
+  id                 String   @id @default(uuid()) @db.Uuid
+  clinicId           String   @map("clinic_id") @db.Uuid
+  location           String
+  condition          String   @default("good")
+  lastInspectionDate DateTime? @map("last_inspection_date") @db.Date
+  qrCode             String?  @unique @map("qr_code")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  clinic Clinic            @relation(fields: [clinicId], references: [id])
+  items  FirstAidKitItem[]
+
+  @@map("first_aid_kits")
+}
+
+model FirstAidKitItem {
+  id         String    @id @default(uuid()) @db.Uuid
+  kitId      String    @map("kit_id") @db.Uuid
+  itemName   String    @map("item_name")
+  quantity   Int       @default(0)
+  expiryDate DateTime? @map("expiry_date") @db.Date
+
+  kit FirstAidKit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@map("first_aid_kit_items")
+}
+
+model AedDevice {
+  id            String    @id @default(uuid()) @db.Uuid
+  clinicId      String    @map("clinic_id") @db.Uuid
+  location      String
+  deviceStatus  String    @default("operational") @map("device_status")
+  batteryStatus String?   @map("battery_status")
+  padsStatus    String?   @map("pads_status")
+  expiryDate    DateTime? @map("expiry_date") @db.Date
+  lastTestDate  DateTime? @map("last_test_date") @db.Date
+  testResult    String?   @map("test_result")
+  qrCode        String?   @unique @map("qr_code")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+
+  @@map("aed_devices")
+}
+
+model SafetyInspection {
+  id           String               @id @default(uuid()) @db.Uuid
+  clinicId     String?              @map("clinic_id") @db.Uuid
+  inspectionType SafetyInspectionType @map("inspection_type")
+  location     String
+  inspectorId  String               @map("inspector_id") @db.Uuid
+  checklistJson Json                @map("checklist_json")
+  result       String
+  photosJson   Json?                @map("photos_json")
+  notes        String?
+  inspectionDate DateTime           @map("inspection_date") @db.Date
+  nextDueDate  DateTime?            @map("next_due_date") @db.Date
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  clinic    Clinic? @relation(fields: [clinicId], references: [id])
+  inspector User    @relation(fields: [inspectorId], references: [id])
+
+  @@map("safety_inspections")
+}
+
+model Circular {
+  id             String           @id @default(uuid()) @db.Uuid
+  title          String
+  content        String
+  attachmentUrl  String?          @map("attachment_url")
+  priority       CircularPriority @default(NORMAL)
+  targetAudience Json             @default("[]") @map("target_audience")
+  clinicIds      Json             @default("[]") @map("clinic_ids")
+  issuedById     String           @map("issued_by") @db.Uuid
+  issuedAt       DateTime         @default(now()) @map("issued_at")
+  expiryDate     DateTime?        @map("expiry_date")
+  isActive       Boolean          @default(true) @map("is_active")
+
+  issuedBy User              @relation(fields: [issuedById], references: [id])
+  receipts CircularReceipt[]
+
+  @@map("circulars")
+}
+
+model CircularReceipt {
+  id         String    @id @default(uuid()) @db.Uuid
+  circularId String    @map("circular_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  receivedAt DateTime  @default(now()) @map("received_at")
+  readAt     DateTime? @map("read_at")
+
+  circular Circular @relation(fields: [circularId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([circularId, userId])
+  @@map("circular_receipts")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model OutboundMessage {
+  id        String                @id @default(uuid()) @db.Uuid
+  channel   OutboundChannel
+  recipient String
+  body      String
+  status    OutboundMessageStatus @default(SIMULATED)
+  metadata  Json?
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  @@map("outbound_messages")
+}
+
+model GuardianNotificationPreference {
+  id        String  @id @default(uuid()) @db.Uuid
+  studentId String  @map("student_id") @db.Uuid
+  sms       Boolean @default(true)
+  whatsapp  Boolean @default(true)
+  email     Boolean @default(true)
+  push      Boolean @default(true)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId])
+  @@map("guardian_notification_preferences")
+}
+
+model Attachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  fileName   String   @map("file_name")
+  filePath   String   @map("file_path")
+  fileSize   Int      @map("file_size")
+  mimeType   String   @map("mime_type")
+  uploadedBy String?  @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
+
+model SavedFilter {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  name       String
+  filterJson Json     @map("filter_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_filters")
+}
+
+model ImportJob {
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @map("user_id") @db.Uuid
+  entityType   String          @map("entity_type")
+  fileName     String          @map("file_name")
+  status       ImportJobStatus @default(PENDING)
+  totalRows    Int             @default(0) @map("total_rows")
+  createdCount Int             @default(0) @map("created_count")
+  updatedCount Int             @default(0) @map("updated_count")
+  rejectedCount Int            @default(0) @map("rejected_count")
+  startedAt    DateTime?       @map("started_at")
+  completedAt  DateTime?       @map("completed_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  user   User          @relation(fields: [userId], references: [id])
+  errors ImportError[]
+
+  @@map("import_jobs")
+}
+
+model ImportError {
+  id        String @id @default(uuid()) @db.Uuid
+  jobId     String @map("job_id") @db.Uuid
+  rowNumber Int    @map("row_number")
+  reason    String
+  rowData   Json?  @map("row_data")
+
+  job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("import_errors")
+}

@@ -1,0 +1,836 @@
+
+openapi: 3.0.3
+info:
+  title: School Health Management System API
+  description: |
+    API الشامل لمنظومة الإدارة الطبية المركزية والمقصف المدرسي
+    مجمع مدارس الأندلس الخاصة - الإصدار 5.0 Ultimate Edition
+  version: 5.0.0
+  contact:
+    name: IT Department
+    email: it@andalus.edu.kw
+
+servers:
+  - url: https://api.andalus-health.edu.kw/v1
+    description: Production Server
+  - url: https://staging-api.andalus-health.edu.kw/v1
+    description: Staging Server
+  - url: http://localhost:3000/v1
+    description: Development Server
+
+tags:
+  - name: Authentication
+    description: عمليات المصادقة وتسجيل الدخول
+  - name: Students
+    description: إدارة الطلاب
+  - name: Employees
+    description: إدارة الموظفين
+  - name: Visits
+    description: الزيارات الطبية
+  - name: Referrals
+    description: تحويلات الطلاب
+  - name: Medications
+    description: الأدوية والمخزون
+  - name: Reports
+    description: التقارير والإحصائيات
+  - name: Psychology
+    description: الأخصائي النفسي
+  - name: Social
+    description: الأخصائي الاجتماعي
+  - name: Canteen
+    description: رقابة المقصف
+  - name: Emergency
+    description: الحالات الطارئة
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: تسجيل الدخول
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: "nurse001"
+                password:
+                  type: string
+                  format: password
+                  example: "SecurePass123!"
+                remember_me:
+                  type: boolean
+                  default: false
+      responses:
+        200:
+          description: تم تسجيل الدخول بنجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+                    example: 3600
+                  user:
+                    $ref: '#/components/schemas/User'
+        401:
+          description: بيانات الدخول غير صحيحة
+
+  /students:
+    get:
+      tags:
+        - Students
+      summary: قائمة الطلاب
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: clinic_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: grade
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: قائمة الطلاب
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Student'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Students
+      summary: إضافة طالب جديد
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudent'
+      responses:
+        201:
+          description: تم إضافة الطالب بنجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+
+  /students/{id}:
+    get:
+      tags:
+        - Students
+      summary: تفاصيل طالب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: تفاصيل الطالب
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+
+  /students/{id}/history:
+    get:
+      tags:
+        - Students
+      summary: السجل الطبي للطالب
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: السجل الطبي
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalHistory'
+
+  /visits:
+    get:
+      tags:
+        - Visits
+      summary: قائمة الزيارات
+      parameters:
+        - name: clinic_id
+          in: query
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: visitor_type
+          in: query
+          schema:
+            type: string
+            enum: [student, employee]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, referred]
+      responses:
+        200:
+          description: قائمة الزيارات
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Visit'
+                  stats:
+                    $ref: '#/components/schemas/VisitStats'
+
+    post:
+      tags:
+        - Visits
+      summary: إنشاء زيارة جديدة
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVisit'
+      responses:
+        201:
+          description: تم إنشاء الزيارة
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visit'
+
+  /referrals:
+    post:
+      tags:
+        - Referrals
+      summary: إنشاء تحويل طالب
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReferral'
+      responses:
+        201:
+          description: تم إنشاء التحويل
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Referral'
+
+  /referrals/{id}/receive:
+    put:
+      tags:
+        - Referrals
+      summary: استقبال تحويل (يبدأ العداد)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: تم الاستقبال
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Referral'
+
+  /medications:
+    get:
+      tags:
+        - Medications
+      summary: قائمة الأدوية
+      parameters:
+        - name: clinic_id
+          in: query
+          schema:
+            type: string
+        - name: expiring_soon
+          in: query
+          schema:
+            type: boolean
+        - name: low_stock
+          in: query
+          schema:
+            type: boolean
+      responses:
+        200:
+          description: قائمة الأدوية
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Medication'
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicationAlert'
+
+  /medications/{id}/administer:
+    post:
+      tags:
+        - Medications
+      summary: إعطاء دواء (MAR)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdministerMedication'
+      responses:
+        201:
+          description: تم إعطاء الدواء
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationAdministration'
+
+  /reports/generate:
+    post:
+      tags:
+        - Reports
+      summary: توليد تقرير
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateReport'
+      responses:
+        200:
+          description: تم توليد التقرير
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: string
+                  download_url:
+                    type: string
+                  format:
+                    type: string
+                    enum: [pdf, excel, csv]
+
+  /psychology/sessions:
+    post:
+      tags:
+        - Psychology
+      summary: إنشاء جلسة نفسية
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePsychologySession'
+      responses:
+        201:
+          description: تم إنشاء الجلسة
+
+  /social/cases:
+    post:
+      tags:
+        - Social
+      summary: فتح حالة اجتماعية
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSocialCase'
+      responses:
+        201:
+          description: تم فتح الحالة
+
+  /emergency:
+    post:
+      tags:
+        - Emergency
+      summary: إنشاء حالة طارئة
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmergencyCase'
+      responses:
+        201:
+          description: تم إنشاء الحالة الطارئة
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+        clinic_id:
+          type: string
+          format: uuid
+
+    Student:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        academic_number:
+          type: string
+        name:
+          type: string
+        grade:
+          type: string
+        class:
+          type: string
+        clinic_id:
+          type: string
+          format: uuid
+        guardian_name:
+          type: string
+        guardian_phone:
+          type: string
+        blood_type:
+          type: string
+        has_allergies:
+          type: boolean
+        has_chronic_conditions:
+          type: boolean
+
+    CreateStudent:
+      type: object
+      required:
+        - academic_number
+        - name
+        - grade
+        - class
+        - clinic_id
+        - guardian_name
+        - guardian_phone
+      properties:
+        academic_number:
+          type: string
+        name:
+          type: string
+        grade:
+          type: string
+        class:
+          type: string
+        clinic_id:
+          type: string
+          format: uuid
+        guardian_name:
+          type: string
+        guardian_phone:
+          type: string
+        guardian_email:
+          type: string
+        blood_type:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+
+    MedicalHistory:
+      type: object
+      properties:
+        student:
+          $ref: '#/components/schemas/Student'
+        visits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Visit'
+        allergies:
+          type: array
+          items:
+            type: object
+        chronic_conditions:
+          type: array
+          items:
+            type: object
+        medications:
+          type: array
+          items:
+            type: object
+        growth_chart:
+          type: array
+          items:
+            type: object
+
+    Visit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        visit_number:
+          type: string
+        date_time:
+          type: string
+          format: date-time
+        visitor_type:
+          type: string
+          enum: [student, employee]
+        visitor_id:
+          type: string
+          format: uuid
+        reason:
+          type: object
+        triage_level:
+          type: string
+          enum: [low, medium, high, emergency]
+        status:
+          type: string
+          enum: [open, closed, referred]
+        vital_signs:
+          type: object
+        procedure:
+          type: string
+        recommendations:
+          type: string
+
+    CreateVisit:
+      type: object
+      required:
+        - visitor_type
+        - visitor_id
+        - clinic_id
+        - reason
+      properties:
+        visitor_type:
+          type: string
+          enum: [student, employee]
+        visitor_id:
+          type: string
+          format: uuid
+        clinic_id:
+          type: string
+          format: uuid
+        reason:
+          type: object
+        triage_level:
+          type: string
+          enum: [low, medium, high, emergency]
+
+    VisitStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_triage:
+          type: object
+        by_status:
+          type: object
+        avg_wait_time:
+          type: number
+        avg_treatment_time:
+          type: number
+
+    Referral:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        referral_number:
+          type: string
+        student_id:
+          type: string
+          format: uuid
+        student_name:
+          type: string
+        referred_by:
+          type: string
+        reason:
+          type: string
+        severity:
+          type: string
+          enum: [normal, urgent, emergency]
+        status:
+          type: string
+          enum: [pending, received, in_treatment, completed]
+        referral_time:
+          type: string
+          format: date-time
+        received_time:
+          type: string
+          format: date-time
+        waiting_duration_minutes:
+          type: integer
+
+    CreateReferral:
+      type: object
+      required:
+        - student_id
+        - reason
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        reason_category:
+          type: string
+        reason_details:
+          type: string
+        severity:
+          type: string
+          enum: [normal, urgent, emergency]
+
+    Medication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active_ingredient:
+          type: string
+        dosage_form:
+          type: string
+        current_quantity:
+          type: integer
+        min_quantity:
+          type: integer
+        expiry_date:
+          type: string
+          format: date
+        batch_number:
+          type: string
+
+    MedicationAlert:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [low_stock, expiring_soon, expired]
+        medication_id:
+          type: string
+          format: uuid
+        medication_name:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+
+    AdministerMedication:
+      type: object
+      required:
+        - visitor_type
+        - visitor_id
+        - dose
+        - unit
+      properties:
+        visitor_type:
+          type: string
+          enum: [student, employee]
+        visitor_id:
+          type: string
+          format: uuid
+        dose:
+          type: number
+        unit:
+          type: string
+        reason:
+          type: string
+        notes:
+          type: string
+
+    MedicationAdministration:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        visitor_type:
+          type: string
+        visitor_id:
+          type: string
+        medication_id:
+          type: string
+        medication_name:
+          type: string
+        dose:
+          type: number
+        unit:
+          type: string
+        administration_time:
+          type: string
+          format: date-time
+        nurse_id:
+          type: string
+          format: uuid
+
+    GenerateReport:
+      type: object
+      required:
+        - report_type
+      properties:
+        report_type:
+          type: string
+        filters:
+          type: object
+        format:
+          type: string
+          enum: [pdf, excel, csv]
+        schedule:
+          type: object
+
+    CreatePsychologySession:
+      type: object
+      required:
+        - student_id
+        - session_type
+        - session_date
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        session_type:
+          type: string
+          enum: [individual, group, emergency, followup]
+        session_date:
+          type: string
+          format: date
+        chief_complaint:
+          type: string
+        clinical_observations:
+          type: string
+
+    CreateSocialCase:
+      type: object
+      required:
+        - student_id
+        - case_type
+        - case_description
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        referral_source:
+          type: string
+        case_type:
+          type: string
+          enum: [financial, family, behavioral, health, academic]
+        case_description:
+          type: string
+
+    CreateEmergencyCase:
+      type: object
+      required:
+        - location
+        - visitor_type
+        - visitor_id
+      properties:
+        location:
+          type: string
+        visitor_type:
+          type: string
+          enum: [student, employee]
+        visitor_id:
+          type: string
+          format: uuid
+        vital_signs:
+          type: object
+        interventions:
+          type: array
+          items:
+            type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

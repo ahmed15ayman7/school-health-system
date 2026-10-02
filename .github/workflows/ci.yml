@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: health
+          POSTGRES_PASSWORD: health_dev
+          POSTGRES_DB: school_health
+        ports: ["5432:5432"]
+    env:
+      DATABASE_URL: postgresql://health:health_dev@localhost:5432/school_health?schema=public
+      AUTH_SECRET: ci-secret
+      AUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma db push
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run build

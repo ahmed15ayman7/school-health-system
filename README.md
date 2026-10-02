@@ -30,3 +30,4 @@ REST تحت `/api/v1/**` مع غلاف `{ success, data, error, meta }`.
 
 `public/sw.js` + `manifest.webmanifest` — طابور offline للسجلات السريرية (مراجعة يدوية عند التعارض).
 # school-health-system
+# school-health-system
