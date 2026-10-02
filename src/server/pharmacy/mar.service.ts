@@ -33,19 +33,21 @@ export async function administerMedication(input: {
   }
 
   return prisma.$transaction(async (tx) => {
-    const batches = await tx.medicationBatch.findMany({
-      where: { medicationId: input.medicationId, quantity: { gt: 0 } },
-      orderBy: { expiryDate: "asc" },
-    });
-
-    const batchRow = input.batchId ? batches.find((b) => b.id === input.batchId) : batches[0];
+    const locked = await tx.$queryRaw<{ id: string; quantity: number }[]>`
+      SELECT id, quantity FROM medication_batches
+      WHERE medication_id = ${input.medicationId}::uuid AND quantity > 0
+      ORDER BY expiry_date ASC
+      FOR UPDATE
+    `;
+    const batchRow = input.batchId
+      ? locked.find((b) => b.id === input.batchId)
+      : locked[0];
     if (!batchRow || batchRow.quantity < 1) throw new Error("INSUFFICIENT_STOCK");
 
-    const updatedBatch = await tx.medicationBatch.updateMany({
-      where: { id: batchRow.id, quantity: { gte: 1 } },
+    await tx.medicationBatch.update({
+      where: { id: batchRow.id },
       data: { quantity: { decrement: 1 } },
     });
-    if (updatedBatch.count !== 1) throw new Error("INSUFFICIENT_STOCK");
     const batch = batchRow;
 
     const mar = await tx.medicationAdministration.create({

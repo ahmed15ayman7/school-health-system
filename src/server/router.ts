@@ -11,6 +11,19 @@ import { administerMedication } from "@/server/pharmacy/mar.service";
 import { detectFrequentVisitors } from "@/server/alerts/frequent.service";
 import { parseStudentImport } from "@/server/import/excel.service";
 import { generateQrDataUrl } from "@/server/qr/qr.service";
+import { getVisitById, createVisit, closeVisit, upsertVisitVitals } from "@/server/visits/visits.service";
+import {
+  getReferralById,
+  getReferralStats,
+  createReferral,
+  receiveReferral,
+  startReferralTreatment,
+  completeReferral,
+} from "@/server/referrals/referrals.service";
+import { getStudentHistory } from "@/server/health/history.service";
+import { getClinicDashboard } from "@/server/clinics/clinics.service";
+import { getMedicalProfile, profileToAlerts } from "@/server/health/health.service";
+import { advancedSearch } from "@/server/search/search.service";
 import type { Resource } from "@/lib/rbac";
 import type { Prisma, VisitorType } from "@prisma/client";
 
@@ -31,6 +44,47 @@ export async function handleApi(
 
   if (pathname.endsWith("/health") && method === "GET") {
     return ok({ status: "ok", time: new Date().toISOString() });
+  }
+
+  if (pathname.includes("/clinics/") && pathname.includes("/dashboard") && method === "GET" && params?.id) {
+    try {
+      return ok(await getClinicDashboard(actor, params.id));
+    } catch (e) {
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "العيادة غير موجودة", 404);
+      throw e;
+    }
+  }
+
+  if (resource === "students" && method === "GET" && pathname.endsWith("/history") && params?.id) {
+    try {
+      return ok(await getStudentHistory(actor, params.id));
+    } catch (e) {
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الطالب غير موجود", 404);
+      throw e;
+    }
+  }
+
+  if (resource === "students" && method === "GET" && pathname.endsWith("/profile") && params?.id) {
+    const student = await prisma.student.findUnique({ where: { id: params.id, isDeleted: false } });
+    if (!student) return fail("NOT_FOUND", "الطالب غير موجود", 404);
+    try {
+      assertClinicAccess(actor.role, actor.clinicId, student.clinicId);
+    } catch {
+      return fail("CLINIC_FORBIDDEN", "لا يمكن الوصول", 403);
+    }
+    const profile = await getMedicalProfile("STUDENT", params.id);
+    return ok({ student, profile, alerts: profileToAlerts(profile) });
+  }
+
+  if (resource === "students" && method === "GET" && params?.id && !pathname.endsWith("/search")) {
+    const student = await prisma.student.findUnique({ where: { id: params.id, isDeleted: false } });
+    if (!student) return fail("NOT_FOUND", "الطالب غير موجود", 404);
+    try {
+      assertClinicAccess(actor.role, actor.clinicId, student.clinicId);
+    } catch {
+      return fail("CLINIC_FORBIDDEN", "لا يمكن الوصول", 403);
+    }
+    return ok(student);
   }
 
   if (resource === "students" && method === "GET" && req.nextUrl.pathname.endsWith("/search")) {
@@ -111,6 +165,22 @@ export async function handleApi(
     return ok(decision);
   }
 
+  if (resource === "visits" && method === "GET" && params?.id && !pathname.includes("/stats")) {
+    const visit = await getVisitById(actor, params.id);
+    if (!visit) return fail("NOT_FOUND", "الزيارة غير موجودة", 404);
+    return ok(visit);
+  }
+
+  if (resource === "visits" && method === "POST" && pathname.endsWith("/vitals") && params?.id) {
+    try {
+      const body = await req.json();
+      return ok(await upsertVisitVitals(actor, params.id, body));
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "علامات حيوية غير صالحة", 400);
+      throw e;
+    }
+  }
+
   if (resource === "visits" && method === "GET" && req.nextUrl.pathname.includes("/stats")) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -129,48 +199,38 @@ export async function handleApi(
     return ok(data);
   }
 
-  if (resource === "visits" && method === "POST" && !pathname.endsWith("/close")) {
-    const body = await req.json();
-    assertClinicAccess(actor.role, actor.clinicId, body.clinicId);
-    const created = await prisma.$transaction(async (tx) => {
-      const visitNumber = await nextSequence(tx, "VIS");
-      return tx.visit.create({
-        data: {
-          visitNumber,
-          dateTime: new Date(),
-          clinicId: body.clinicId,
-          nurseId: actor.userId,
-          visitorType: body.visitorType,
-          visitorId: body.visitorId,
-          reasonsJson: body.reasons ?? {},
-          triageLevel: body.triageLevel ?? "LOW",
-          entryTime: new Date(),
-          status: "OPEN",
-        },
-      });
-    });
-    return ok(created, undefined, 201);
+  if (resource === "visits" && method === "POST" && !pathname.endsWith("/close") && !pathname.endsWith("/vitals")) {
+    try {
+      const body = await req.json();
+      const created = await createVisit(actor, body);
+      return ok(created, undefined, 201);
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات الزيارة غير صالحة", 400);
+      throw e;
+    }
   }
 
   if (resource === "visits" && method === "POST" && pathname.endsWith("/close")) {
     const id = params?.id!;
-    const visit = await prisma.visit.findUnique({ where: { id } });
-    if (!visit) return fail("NOT_FOUND", "الزيارة غير موجودة", 404);
-    const openHours = (Date.now() - visit.entryTime.getTime()) / 36e5;
-    if (openHours > 24 && actor.role !== "HEAD_NURSE" && actor.role !== "SUPER_ADMIN") {
-      return fail("FORBIDDEN", "إغلاق الزيارة المفتوحة >24 ساعة لرئيس التمريض فقط", 403);
+    try {
+      const body = await req.json();
+      return ok(await closeVisit(actor, id, body));
+    } catch (e) {
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الزيارة غير موجودة", 404);
+      if (e instanceof Error && e.message === "FORBIDDEN") return fail("FORBIDDEN", "إغلاق الزيارة >24 ساعة لرئيس التمريض فقط", 403);
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات الإغلاق غير صالحة", 400);
+      throw e;
     }
-    const body = await req.json();
-    const updated = await prisma.visit.update({
-      where: { id },
-      data: { status: "CLOSED", exitTime: new Date(), outcome: body.outcome, recommendations: body.recommendations },
-    });
-    return ok(updated);
   }
 
   if (resource === "student_referrals" && method === "GET" && req.nextUrl.pathname.includes("/stats")) {
-    const pending = await prisma.studentReferral.count({ where: { ...scope, status: "PENDING" } });
-    return ok({ pending });
+    return ok(await getReferralStats(actor));
+  }
+
+  if (resource === "student_referrals" && method === "GET" && params?.id) {
+    const ref = await getReferralById(actor, params.id);
+    if (!ref) return fail("NOT_FOUND", "التحويل غير موجود", 404);
+    return ok(ref);
   }
 
   if (resource === "student_referrals" && method === "GET") {
@@ -190,74 +250,49 @@ export async function handleApi(
     !pathname.includes("/start-treatment") &&
     !pathname.includes("/complete")
   ) {
-    const body = await req.json();
-    const student = await prisma.student.findUnique({ where: { id: body.studentId } });
-    if (!student) return fail("NOT_FOUND", "الطالب غير موجود", 404);
-    assertClinicAccess(actor.role, actor.clinicId, student.clinicId);
-    const created = await prisma.$transaction(async (tx) => {
-      const referralNumber = await nextSequence(tx, "REF");
-      return tx.studentReferral.create({
-        data: {
-          referralNumber,
-          studentId: student.id,
-          referredById: actor.userId,
-          referredByName: actor.fullName,
-          referredByRole: actor.role,
-          reasonCategory: body.reasonCategory,
-          reasonDetails: body.reasonDetails,
-          severity: body.severity ?? "NORMAL",
-          clinicId: student.clinicId,
-        },
-      });
-    });
-    return ok(created, undefined, 201);
+    try {
+      const body = await req.json();
+      const created = await createReferral(actor, body);
+      return ok(created, undefined, 201);
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات التحويل غير صالحة", 400);
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الطالب غير موجود", 404);
+      throw e;
+    }
   }
 
   if (resource === "student_referrals" && method === "POST" && pathname.includes("/receive")) {
     const id = params?.id!;
-    const key = req.headers.get("idempotency-key");
-    const idem = await checkIdempotency(key, req.nextUrl.pathname);
-    if (idem.replay) return ok({ replay: true });
-    const updated = await prisma.studentReferral.update({
-      where: { id },
-      data: { status: "RECEIVED", receivedTime: new Date() },
-    });
-    return ok(updated);
+    try {
+      const key = req.headers.get("idempotency-key");
+      const result = await receiveReferral(actor, id, key);
+      return ok(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "التحويل غير موجود", 404);
+      throw e;
+    }
   }
 
   if (resource === "student_referrals" && method === "POST" && pathname.includes("/start-treatment")) {
     const id = params?.id!;
-    const updated = await prisma.studentReferral.update({
-      where: { id },
-      data: { status: "IN_TREATMENT", treatmentStartTime: new Date() },
-    });
-    return ok(updated);
+    try {
+      return ok(await startReferralTreatment(actor, id));
+    } catch (e) {
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "التحويل غير موجود", 404);
+      throw e;
+    }
   }
 
   if (resource === "student_referrals" && method === "POST" && pathname.includes("/complete")) {
     const id = params?.id!;
-    const body = await req.json();
-    const ref = await prisma.studentReferral.update({
-      where: { id },
-      data: {
-        status: "COMPLETED",
-        treatmentEndTime: new Date(),
-        departureTime: new Date(),
-        diagnosis: body.diagnosis,
-        procedure: body.procedure,
-        recommendations: body.recommendations,
-        outcome: body.outcome,
-        guardianNotified: true,
-        guardianNotifiedAt: new Date(),
-      },
-      include: { student: true },
-    });
-    await notifyGuardianOnReferralComplete({
-      studentName: ref.student.name,
-      guardianPhone: ref.student.guardianPhone,
-      summary: body.recommendations ?? "اكتمال الزيارة",
-    });
-    return ok(ref);
+    try {
+      const body = await req.json();
+      return ok(await completeReferral(actor, id, body));
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات الإنهاء غير صالحة", 400);
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "التحويل غير موجود", 404);
+      throw e;
+    }
   }
 
   if (resource === "emergency" && method === "POST") {
@@ -537,13 +572,8 @@ export async function handleApi(
     return ok({ status: "ok", time: new Date().toISOString() });
   }
 
-  if (method === "GET" && req.nextUrl.searchParams.get("q") !== null) {
-    const q = req.nextUrl.searchParams.get("q") ?? "";
-    const [students, employees] = await Promise.all([
-      prisma.student.findMany({ where: { name: { contains: q, mode: "insensitive" } }, take: 10 }),
-      prisma.employee.findMany({ where: { name: { contains: q, mode: "insensitive" } }, take: 10 }),
-    ]);
-    return ok({ students, employees });
+  if (method === "GET" && (pathname.endsWith("/search") || req.nextUrl.searchParams.get("q") !== null)) {
+    return ok(await advancedSearch(actor, req.nextUrl.searchParams));
   }
 
   return fail("NOT_IMPLEMENTED", `No handler for ${resource} ${method}`, 501);

@@ -64,7 +64,7 @@ export async function getStudentHistory(actor: ActorContext, studentId: string):
         at: inj.injuryDate.toISOString(),
         type: "injury",
         title: inj.description,
-        detail: inj.location ?? undefined,
+        detail: inj.notes ?? undefined,
       });
     }
   }

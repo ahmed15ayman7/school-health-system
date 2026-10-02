@@ -27,6 +27,7 @@ function mapResource(pathname: string): Resource {
   if (pathname.includes("/circulars")) return "circulars";
   if (pathname.includes("/reports")) return "reports";
   if (pathname.includes("/audit-logs")) return "audit_logs";
+  if (pathname.includes("/clinics/")) return "settings";
   if (pathname.includes("/settings")) return "settings";
   if (pathname.includes("/search")) return "students";
   if (pathname.endsWith("/health")) return "settings";
@@ -65,6 +66,15 @@ export async function PUT(req: NextRequest, ctx: RouteCtx) {
   const resource = mapResource(req.nextUrl.pathname);
   return withActor(req, resource, "update", async (actor, request) =>
     handleApi(request, actor, resource, "PUT", {
+      id: (await ctx.params).segments?.find((s) => s.match(/^[0-9a-f-]{36}$/i)),
+    }),
+  );
+}
+
+export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  const resource = mapResource(req.nextUrl.pathname);
+  return withActor(req, resource, "update", async (actor, request) =>
+    handleApi(request, actor, resource, "PATCH", {
       id: (await ctx.params).segments?.find((s) => s.match(/^[0-9a-f-]{36}$/i)),
     }),
   );

@@ -1,7 +1,10 @@
 import { StatCard } from "@/components/shared/StatCard";
-import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { clinicFilter } from "@/lib/clinic-scope";
+import { getExecutiveDashboardCounts } from "@/server/dashboard/dashboard.service";
+import { getVisitsLast7Days } from "@/server/dashboard/charts.service";
+import { getKpis } from "@/server/kpi/kpi.service";
+import { ExecutiveCharts } from "@/components/shared/ExecutiveCharts";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -9,21 +12,12 @@ export default async function ExecutiveDashboard() {
   const session = await auth();
   const role = session!.user.role;
   const clinicId = session!.user.clinicId;
-  const scope = clinicFilter(role, clinicId);
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const [visitsToday, emergencies, pendingReferrals, lowStock] = await Promise.all([
-    prisma.visit.count({ where: { ...scope, dateTime: { gte: todayStart }, isDeleted: false } }),
-    prisma.emergencyCase.count({ where: { eventTime: { gte: todayStart } } }),
-    prisma.studentReferral.count({ where: { ...scope, status: "PENDING" } }),
-    prisma.medicationBatch.count({
-      where: {
-        quantity: { lte: 5 },
-        medication: scope.clinicId ? { clinicId: scope.clinicId } : undefined,
-      },
-    }),
-  ]);
+  const [{ visitsToday, emergencies, pendingReferrals, lowStock }, visitsByDay, kpis] =
+    await Promise.all([
+      getExecutiveDashboardCounts(role, clinicId),
+      getVisitsLast7Days(role, clinicId),
+      getKpis(role, clinicId),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -41,6 +35,17 @@ export default async function ExecutiveDashboard() {
         <StatCard label="حالات طارئة" value={emergencies} icon="🚨" tone="red" />
         <StatCard label="تحويلات قيد الانتظار" value={pendingReferrals} icon="⏳" tone="orange" />
         <StatCard label="تنبيهات مخزون" value={lowStock} icon="💊" tone="blue" />
+      </div>
+      <ExecutiveCharts visitsByDay={visitsByDay} />
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <h3 className="mb-3 font-black text-primary">مؤشرات FR-122</h3>
+        <div className="flex flex-wrap gap-2">
+          {kpis.map((k) => (
+            <Badge key={k.key} tone={k.status === "ok" ? "green" : k.status === "warn" ? "yellow" : "red"}>
+              {k.label}: {k.value} (هدف {k.target})
+            </Badge>
+          ))}
+        </div>
       </div>
       <div className="rounded-2xl border border-border bg-card p-5">
         <h3 className="mb-3 font-black text-primary">اختصارات سريعة (≤3 نقرات)</h3>

@@ -1,17 +1,26 @@
 import { MedicalAlertBanner } from "@/components/shared/MedicalAlertBanner";
-import { prisma } from "@/lib/db";
-import { getMedicalProfile, profileToAlerts } from "@/server/health/health.service";
+import { auth } from "@/lib/auth";
+import { getStudentForProfile } from "@/server/students/students.service";
+import { rowAvatarSrc } from "@/lib/avatar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
-import { rowAvatarSrc } from "@/lib/avatar";
 
 export default async function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const student = await prisma.student.findUnique({ where: { id, isDeleted: false } });
-  if (!student) notFound();
-  const profile = await getMedicalProfile("STUDENT", id);
-  const alerts = profileToAlerts(profile);
+  const session = await auth();
+  const data = await getStudentForProfile(
+    {
+      userId: session!.user.id,
+      role: session!.user.role,
+      clinicId: session!.user.clinicId,
+      fullName: session!.user.name ?? "",
+      username: session!.user.username ?? "",
+    },
+    id,
+  );
+  if (!data) notFound();
+  const { student, profile, alerts } = data;
 
   return (
     <div className="space-y-4">

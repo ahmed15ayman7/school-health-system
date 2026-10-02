@@ -5,6 +5,7 @@ import { writeAudit } from "@/lib/audit";
 import type { ActorContext } from "@/server/context";
 import type { Prisma } from "@prisma/client";
 import { closeVisitSchema, createVisitSchema } from "@/lib/validations/visit";
+import { vitalSignsSchema } from "@/lib/validations/vitals";
 
 function buildReasonsJson(body: {
   reasons?: Record<string, unknown>;
@@ -86,7 +87,6 @@ export async function upsertVisitVitals(actor: ActorContext, visitId: string, ra
   const visit = await prisma.visit.findUnique({ where: { id: visitId } });
   if (!visit || visit.isDeleted) throw new Error("NOT_FOUND");
   assertClinicAccess(actor.role, actor.clinicId, visit.clinicId);
-  const { vitalSignsSchema } = require("@/lib/validations/vitals") as typeof import("@/lib/validations/vitals");
   const parsed = vitalSignsSchema.safeParse(raw);
   if (!parsed.success) throw new Error("VALIDATION_ERROR");
   return prisma.vitalSign.upsert({

@@ -1,17 +1,36 @@
-"use client";
+import { auth } from "@/lib/auth";
+import { MedicalTimeline } from "@/components/shared/MedicalTimeline";
+import { getStudentHistory } from "@/server/health/history.service";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-import { RecordDetailPanel } from "@/components/shared/RecordDetailPanel";
-import { useParams } from "next/navigation";
+export default async function StudentHistoryPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  const events = await getStudentHistory(
+    {
+      userId: session!.user.id,
+      role: session!.user.role,
+      clinicId: session!.user.clinicId,
+      fullName: session!.user.name ?? "",
+      username: session!.user.username ?? "",
+    },
+    id,
+  );
 
-export default function Page() {
-  const params = useParams();
-  const id = params?.id as string | undefined;
   return (
-    <RecordDetailPanel
-      title="السجل المرضي"
-      apiPath="/api/v1/students"
-      recordId={id}
-      backHref="/students"
-    />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-primary">السجل المرضي</h2>
+        <Link href={`/students/${id}`}>
+          <Button size="sm" variant="outline">
+            رجوع للملف
+          </Button>
+        </Link>
+      </div>
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <MedicalTimeline events={events} />
+      </div>
+    </div>
   );
 }

@@ -1,11 +1,11 @@
 import type { StudentReferral } from "@prisma/client";
+import { referralIsLate as isLate } from "@/lib/referral-utils";
 
 export function referralIsLate(
   ref: Pick<StudentReferral, "status" | "referralTime">,
   now = new Date(),
 ): boolean {
-  if (ref.status !== "PENDING") return false;
-  return now.getTime() - ref.referralTime.getTime() > 15 * 60 * 1000;
+  return isLate(ref, now);
 }
 
 export function computeWaitingMinutes(receivedTime: Date, referralTime: Date): number {

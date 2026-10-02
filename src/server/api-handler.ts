@@ -31,6 +31,8 @@ export async function withActor<T>(
     if (msg === "ALLERGY_CONFLICT") return fail("ALLERGY_CONFLICT", "تعارض حساسية — يلزم تجاوز صريح", 409);
     if (msg === "INSUFFICIENT_STOCK") return fail("INSUFFICIENT_STOCK", "مخزون غير كافٍ", 409);
     if (msg === "IDEMPOTENCY_REQUIRED") return fail("IDEMPOTENCY_REQUIRED", "Idempotency-Key مطلوب", 400);
+    if (msg === "NOT_FOUND") return fail("NOT_FOUND", "السجل غير موجود", 404);
+    if (msg === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "بيانات غير صالحة", 400);
     console.error(e);
     return fail("INTERNAL", "خطأ داخلي", 500);
   }
