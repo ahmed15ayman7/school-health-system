@@ -65,6 +65,10 @@ location / {
 
 بدون `X-Forwarded-Proto` قد يفشل تسجيل الدخول خلف HTTPS.
 
+### Coolify
+
+راجع [`docs/coolify.md`](docs/coolify.md): منفذ **3000**، healthcheck `/api/v1/health`، و`UPLOAD_DIR=/app/uploads`.
+
 ## API
 
 REST تحت `/api/v1/**` مع غلاف `{ success, data, error, meta }`.
