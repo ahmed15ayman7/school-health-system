@@ -8,6 +8,8 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+# سكربت postinstall يشغّل prisma generate، فيلزم وجود الـ schema قبل npm ci
+COPY prisma ./prisma
 RUN npm ci
 
 FROM base AS builder
