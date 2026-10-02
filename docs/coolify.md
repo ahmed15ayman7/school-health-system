@@ -26,11 +26,15 @@ AUTH_SECRET=قيمة-قوية-openssl-rand-base64-32
 AUTH_URL=https://perplexity.ifacegb.net
 APP_TIMEZONE=Asia/Qatar
 UPLOAD_DIR=/app/uploads
-RUN_DB_PUSH=true
 ```
 
 - **`DATABASE_URL`**: على Coolify استخدم hostname الداخلي لـ Postgres (مثل `x5hz7092...:5432`) إذا الخدمة على نفس الشبكة.
-- **`RUN_DB_PUSH=true`**: **مرة واحدة** بعد أول نشر ناجح، ثم احذفها أو `false` وأعد **Redeploy**.
+- **لا تضبط `RUN_DB_PUSH`** — Prisma CLI داخل الصورة الـ slim يسبب `Cannot find module 'effect'` وتفشل الحاوية قبل `node server.js`.
+- **Schema + seed (مرة واحدة من جهازك)**:
+  ```bash
+  DATABASE_URL='postgres://...' npm run db:push
+  DATABASE_URL='postgres://...' npm run db:seed
+  ```
 - **`AUTH_URL`**: يطابق حقل Domains بالضبط (`https`).
 
 Seed (اختياري): من جهازك المحلي بنفس `DATABASE_URL` العام (إن متاح) أو من Terminal في Coolify بعد تثبيت أدوات التطوير — الأسهل: `npm run db:seed` محلياً ضد DB إذا المنفذ مفتوح.

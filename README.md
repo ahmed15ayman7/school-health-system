@@ -33,15 +33,13 @@ docker run -d \
   -e AUTH_URL='https://perplexity.ifacegb.net' \
   -e APP_TIMEZONE='Asia/Qatar' \
   -e UPLOAD_DIR='/app/uploads' \
-  -e RUN_DB_PUSH='true' \
   -v school-health-uploads:/app/uploads \
   --restart unless-stopped \
   school-health
 ```
 
 - **`AUTH_URL`**: نفس رابط المتصفح، `https`، **بدون** `/` في الآخر.
-- **`RUN_DB_PUSH=true`**: أول نشر فقط؛ بعدها شغّل الحاوية بـ `RUN_DB_PUSH=false` أو احذف المتغير.
-- **Seed**: من جهاز فيه الكود — `DATABASE_URL` نفس السيرفر ثم `npm run db:seed` (الصورة لا تحتوي أداة seed).
+- **Schema**: قبل أول نشر — `npm run db:push` ثم `npm run db:seed` من جهازك بنفس `DATABASE_URL` (لا تستخدم `RUN_DB_PUSH` داخل الحاوية).
 
 تحديث بعد تعديل الكود:
 

@@ -7,16 +7,16 @@
 #     -e AUTH_SECRET='...' \
 #     -e AUTH_URL='https://your-domain' \
 #     -e APP_TIMEZONE='Asia/Qatar' \
-#     -e RUN_DB_PUSH=true \
 #     -v school-health-uploads:/app/uploads \
 #     --restart unless-stopped \
 #     school-health
 #
-# RUN_DB_PUSH=true مرة واحدة عند أول نشر فقط. البيانات التجريبية: npm run db:seed من جهازك ضد نفس DATABASE_URL.
+# قبل أول نشر: npm run db:push و npm run db:seed من جهازك (DATABASE_URL للإنتاج).
+# لا تضبط RUN_DB_PUSH=true في Coolify — يكسر التشغيل.
 
 FROM node:20-bookworm-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
@@ -66,8 +66,8 @@ RUN chmod +x /entrypoint.sh \
 USER nextjs
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:3000/api/v1/health >/dev/null || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "server.js"]
