@@ -19,6 +19,9 @@ services:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       UPLOAD_DIR: /app/uploads
+      AUTH_URL: ${AUTH_URL:?set AUTH_URL to your public https URL}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       # true عند أول نشر فقط — يطبّق schema على DB
       RUN_DB_PUSH: ${RUN_DB_PUSH:-false}
     volumes:

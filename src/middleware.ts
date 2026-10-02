@@ -1,9 +1,18 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { authSecureCookies, publicAppUrl } from "@/lib/auth-env";
+
+function requestOrigin(req: NextRequest): string {
+  return publicAppUrl() ?? req.nextUrl.origin;
+}
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: authSecureCookies(),
+  });
   const isLoggedIn = !!token;
   const pathname = req.nextUrl.pathname;
   const isLogin = pathname.startsWith("/login");
@@ -24,18 +33,18 @@ export async function middleware(req: NextRequest) {
         { status: 401 },
       );
     }
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", requestOrigin(req)));
   }
 
   if (isLoggedIn && isLogin) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/", requestOrigin(req)));
   }
 
   const res = NextResponse.next();
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  if (process.env.NODE_ENV === "production") {
+  if (authSecureCookies()) {
     res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   return res;

@@ -15,6 +15,26 @@ npm run dev
 
 افتح `http://localhost:3000/login` — `admin / admin123` أو `nurse.b / nurse123`.
 
+## النشر (HTTPS)
+
+في `.env` على السيرفر:
+
+- `AUTH_URL=https://your-domain` — **بدون** `/` في النهاية، ونفس رابط المتصفح.
+- `AUTH_SECRET` — قيمة عشوائية قوية (مثلاً `openssl rand -base64 32`).
+- `DATABASE_URL` — اتصال Postgres يصل من داخل حاوية Docker.
+
+بعد تعديل `.env`: `docker compose -f docker-compose.prod.yml up -d --build`.
+
+خلف Nginx أمام الحاوية على `:3000` أضف على الأقل:
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+بدون `X-Forwarded-Proto` قد يفشل تسجيل الدخول أو تُرفض الجلسة بعده.
+
 ## API
 
 REST تحت `/api/v1/**` مع غلاف `{ success, data, error, meta }`.
