@@ -1,0 +1,48 @@
+# تشغيل التطبيق على السيرفر (PostgreSQL خارجي أو خدمة postgres أدناه)
+#
+# 1) انسخ .env.example إلى .env وعدّل DATABASE_URL و AUTH_SECRET و AUTH_URL
+# 2) docker compose -f docker-compose.prod.yml up -d --build
+#
+# AUTH_URL = الرابط العام للموقع (مثال https://health.example.com)
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      UPLOAD_DIR: /app/uploads
+      # true عند أول نشر فقط — يطبّق schema على DB
+      RUN_DB_PUSH: ${RUN_DB_PUSH:-false}
+    volumes:
+      - app_uploads:/app/uploads
+
+  # اختياري: Postgres على نفس السيرفر (احذفه إذا تستخدم DB خارجي)
+  postgres:
+    profiles: ["with-db"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-health}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-school_health}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: >
+      postgres -c shared_preload_libraries=pg_trgm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-health} -d ${POSTGRES_DB:-school_health}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  app_uploads:
+  postgres_data:
