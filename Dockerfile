@@ -1,73 +1,54 @@
 # syntax=docker/dockerfile:1
-#
-# بناء وتشغيل (بدون docker compose):
-#   docker build -t school-health .
-#   docker run -d --name school-health -p 3000:3000 \
-#     -e DATABASE_URL='postgresql://...' \
-#     -e AUTH_SECRET='...' \
-#     -e AUTH_URL='https://your-domain' \
-#     -e APP_TIMEZONE='Asia/Qatar' \
-#     -v school-health-uploads:/app/uploads \
-#     --restart unless-stopped \
-#     school-health
-#
-# قبل أول نشر: npm run db:push و npm run db:seed من جهازك (DATABASE_URL للإنتاج).
-# لا تضبط RUN_DB_PUSH=true في Coolify — يكسر التشغيل.
 
+# Debian slim + OpenSSL for Prisma (PostgreSQL client)
 FROM node:20-bookworm-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates curl \
+  && apt-get install -y --no-install-recommends openssl ca-certificates tini \
   && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
 
 FROM base AS deps
-COPY package.json package-lock.json ./
-# سكربت postinstall يشغّل prisma generate، فيلزم وجود الـ schema قبل npm ci
-COPY prisma ./prisma
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 FROM base AS builder
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Prisma يحتاج DATABASE_URL وقت البناء فقط
-ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
-RUN npx prisma generate
 RUN npm run build
+# RUN npx prisma db push
 
 FROM base AS runner
+WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
-ENV UPLOAD_DIR=/app/uploads
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 
-WORKDIR /app
-
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Prisma + Argon2 (native) للتشغيل و db push الاختياري
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@node-rs ./node_modules/@node-rs
-
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh \
-  && mkdir -p /app/uploads \
-  && chown -R nextjs:nodejs /app/uploads
+# Install fonts system-wide so sharp/librsvg shapes Arabic text when rendering
+# certificates on this slim image (embedded @font-face is not honored here).
+# fonts-hosny-amiri = the Amiri family (matches font-family:'Amiri'); the manual
+# copy of the app's own TTFs is a belt-and-suspenders for weight resolution.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends fontconfig fonts-hosny-amiri \
+  && mkdir -p /usr/share/fonts/truetype/perplexity \
+  && cp /app/public/fonts/*.ttf /usr/share/fonts/truetype/perplexity/ \
+  && fc-cache -f \
+  && rm -rf /var/lib/apt/lists/*
 
 USER nextjs
 EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:3000/api/v1/health >/dev/null || exit 1
-
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server.js"]
