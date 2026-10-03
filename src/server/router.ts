@@ -156,7 +156,8 @@ export async function handleApi(
   }
 
   if (resource === "students" && method === "GET" && req.nextUrl.pathname.endsWith("/search")) {
-    const q = req.nextUrl.searchParams.get("q") ?? "";
+    const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
+    if (!q) return ok([]);
     const data = await prisma.student.findMany({
       where: {
         ...scope,
@@ -167,7 +168,17 @@ export async function handleApi(
           { qrCode: { contains: q } },
         ],
       },
-      take: 20,
+      select: {
+        id: true,
+        name: true,
+        academicNumber: true,
+        grade: true,
+        class: true,
+        clinicId: true,
+        photoUrl: true,
+      },
+      orderBy: { name: "asc" },
+      take: 25,
     });
     return ok(data);
   }

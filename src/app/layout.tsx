@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -8,6 +8,11 @@ const cairo = Cairo({
   weight: ["400", "600", "700", "800", "900"],
   variable: "--font-cairo",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "منظومة الإدارة الطبية المركزية | مدارس الأندلس",

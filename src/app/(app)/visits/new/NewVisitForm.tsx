@@ -8,11 +8,19 @@ import { StudentPicker } from "@/components/shared/StudentPicker";
 import { VitalSignsForm, parseVitals, type VitalFields } from "@/components/shared/VitalSignsForm";
 import { VISIT_REASON_LABELS } from "@/lib/visit-reasons";
 import { toast } from "sonner";
+import { ArrowRight, ClipboardList, HeartPulse, Stethoscope, UserRound } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const REASONS = Object.keys(VISIT_REASON_LABELS) as (keyof typeof VISIT_REASON_LABELS)[];
 
+const TRIAGE_STYLES: Record<string, string> = {
+  LOW: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  MEDIUM: "border-amber-200 bg-amber-50 text-amber-900",
+  HIGH: "border-orange-200 bg-orange-50 text-orange-900",
+  EMERGENCY: "border-red-300 bg-red-50 text-red-800",
+};
+
 type Props = {
-  /** عيادة افتراضية للمستخدم (ممرض) — المدير يعتمد عيادة الطالب */
   defaultClinicId?: string | null;
 };
 
@@ -23,6 +31,40 @@ function cleanVitalsPayload(values: VitalFields) {
     if (typeof v === "number" && !Number.isNaN(v)) out[k] = v;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+function FormSection({
+  step,
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  step: number;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "overflow-visible rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-5",
+        className,
+      )}
+    >
+      <div className="mb-4 flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
+          {step}
+        </span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Icon className="h-5 w-5 shrink-0 text-accent" aria-hidden />
+          <h3 className="text-base font-black text-primary">{title}</h3>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function NewVisitForm({ defaultClinicId }: Props) {
@@ -99,73 +141,109 @@ export default function NewVisitForm({ defaultClinicId }: Props) {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-black text-primary">تسجيل زيارة عيادة</h2>
-          <p className="text-xs font-bold text-muted">من الملف الطلابي أو من سجل الزيارات — تُسجّل في سجل الزيارات والملف المرضي</p>
-        </div>
-        <Link href="/visits">
-          <Button type="button" variant="outline" size="sm">
-            رجوع للسجل
-          </Button>
-        </Link>
-      </div>
-      <section className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="mb-2 font-black text-primary">الطالب</h3>
-        <StudentPicker value={student} onSelect={setStudent} />
-      </section>
-      <section className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="mb-2 font-black text-primary">سبب الزيارة</h3>
-        <div className="flex flex-wrap gap-2">
-          {REASONS.map((r) => (
-            <label
-              key={r}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-xs font-bold has-[:checked]:border-accent-2 has-[:checked]:bg-accent/5"
+    <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5 overflow-visible pb-8">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#0e2350] via-[#16357a] to-[#2563eb] px-4 py-5 text-white shadow-lg sm:px-6 sm:py-6">
+        <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-white/70">زيارة عيادة</p>
+            <h2 className="mt-1 text-xl font-black sm:text-2xl">تسجيل زيارة جديدة</h2>
+            <p className="mt-2 max-w-xl text-xs font-semibold leading-relaxed text-white/85 sm:text-sm">
+              اختر الطالب، حدّد سبب الزيارة والفرز، ثم احفظ لفتح السجل في الزيارات والملف الطبي.
+            </p>
+          </div>
+          <Link href="/visits" className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-white/40 bg-white/10 text-white hover:bg-white/20"
             >
-              <input
-                type="checkbox"
-                checked={reasonList.includes(r)}
-                onChange={(e) =>
-                  setReasonList((prev) => (e.target.checked ? [...prev, r] : prev.filter((x) => x !== r)))
-                }
-              />
-              {VISIT_REASON_LABELS[r]}
-            </label>
-          ))}
+              <ArrowRight className="h-4 w-4" aria-hidden />
+              رجوع للسجل
+            </Button>
+          </Link>
         </div>
-        <input
-          className="mt-2 w-full rounded-xl border border-border px-3 py-2 text-sm"
-          placeholder="تفاصيل إضافية..."
+        <Stethoscope
+          className="pointer-events-none absolute -bottom-4 -start-4 h-28 w-28 text-white/[0.07] sm:h-32 sm:w-32"
+          aria-hidden
+        />
+      </div>
+
+      <FormSection step={1} title="اختيار الطالب" icon={UserRound} className="z-20">
+        <StudentPicker value={student} onSelect={setStudent} />
+      </FormSection>
+
+      <FormSection step={2} title="سبب الزيارة" icon={ClipboardList}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+          {REASONS.map((r) => {
+            const checked = reasonList.includes(r);
+            return (
+              <label
+                key={r}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition",
+                  checked
+                    ? "border-accent bg-accent/10 text-primary shadow-sm"
+                    : "border-border bg-slate-50/80 text-foreground hover:border-accent/40 hover:bg-white",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border text-accent accent-teal-600"
+                  checked={checked}
+                  onChange={(e) =>
+                    setReasonList((prev) => (e.target.checked ? [...prev, r] : prev.filter((x) => x !== r)))
+                  }
+                />
+                <span className="leading-snug">{VISIT_REASON_LABELS[r]}</span>
+              </label>
+            );
+          })}
+        </div>
+        <textarea
+          className="mt-3 min-h-[88px] w-full resize-y rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-semibold outline-none ring-accent/30 focus:ring-2"
+          placeholder="تفاصيل إضافية عن الشكوى..."
           value={otherReason}
           onChange={(e) => setOtherReason(e.target.value)}
         />
-      </section>
-      <section className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="mb-2 font-black text-primary">الفرز</h3>
-        <select
-          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-bold"
-          value={triageLevel}
-          onChange={(e) => setTriageLevel(e.target.value)}
-        >
-          <option value="LOW">منخفض</option>
-          <option value="MEDIUM">متوسط</option>
-          <option value="HIGH">عالي</option>
-          <option value="EMERGENCY">طارئ</option>
-        </select>
-        <input
-          className="mt-2 w-full rounded-xl border border-border px-3 py-2 text-sm"
-          placeholder="سبب التصنيف (اختياري)"
-          value={triageReason}
-          onChange={(e) => setTriageReason(e.target.value)}
-        />
-      </section>
-      <section className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="mb-2 font-black text-primary">العلامات الحيوية (اختياري)</h3>
+      </FormSection>
+
+      <FormSection step={3} title="فرز الحالة" icon={HeartPulse}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-muted">مستوى الأولوية</label>
+            <select
+              className={cn(
+                "w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-accent/30",
+                TRIAGE_STYLES[triageLevel] ?? "border-border bg-white",
+              )}
+              value={triageLevel}
+              onChange={(e) => setTriageLevel(e.target.value)}
+            >
+              <option value="LOW">منخفض</option>
+              <option value="MEDIUM">متوسط</option>
+              <option value="HIGH">عالي</option>
+              <option value="EMERGENCY">طارئ</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-muted">سبب التصنيف (اختياري)</label>
+            <input
+              className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-accent/30"
+              placeholder="مثال: حرارة مرتفعة..."
+              value={triageReason}
+              onChange={(e) => setTriageReason(e.target.value)}
+            />
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection step={4} title="العلامات الحيوية (اختياري)" icon={HeartPulse}>
         <VitalSignsForm values={vitals} onChange={setVitals} />
-      </section>
-      <Button type="submit" disabled={loading || !student} className="w-full">
-        {loading ? "جاري الحفظ..." : "فتح الزيارة"}
+      </FormSection>
+
+      <Button type="submit" disabled={loading || !student} size="lg" className="w-full sm:text-base">
+        {loading ? "جاري فتح الزيارة..." : "فتح الزيارة وتسجيلها"}
       </Button>
     </form>
   );

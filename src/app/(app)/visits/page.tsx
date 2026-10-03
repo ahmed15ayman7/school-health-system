@@ -1,12 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { useSession } from "next-auth/react";
 import { can } from "@/lib/rbac";
 import { AutoDataTable } from "@/components/shared/AutoDataTable";
 import { Button } from "@/components/ui/button";
 
-export default async function VisitsPage() {
-  const session = await auth();
-  const canCreate = session?.user.role ? can(session.user.role, "visits", "create") : false;
+export default function VisitsPage() {
+  const { data: session } = useSession();
+  const canCreate = session?.user?.role ? can(session.user.role, "visits", "create") : false;
 
   return (
     <AutoDataTable
