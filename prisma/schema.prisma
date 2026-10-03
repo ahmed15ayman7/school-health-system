@@ -88,6 +88,19 @@ enum TransactionType {
   ADJUSTMENT
 }
 
+enum StockScope {
+  MAIN
+  CLINIC
+}
+
+enum InternalStockRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+  CANCELLED
+}
+
 enum RecommendationStatus {
   PENDING
   APPROVED
@@ -264,13 +277,14 @@ model School {
 }
 
 model Clinic {
-  id        String   @id @default(uuid()) @db.Uuid
-  schoolId  String   @map("school_id") @db.Uuid
-  name      String
-  location  String?
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  name         String
+  location     String?
+  isMainStore  Boolean  @default(false) @map("is_main_store")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   school              School               @relation(fields: [schoolId], references: [id])
   users               User[]
@@ -279,6 +293,8 @@ model Clinic {
   visits              Visit[]
   studentReferrals    StudentReferral[]
   medications         Medication[]
+  medicationBatches   MedicationBatch[]
+  stockRequestsTo     InternalStockRequest[] @relation("StockRequestClinic")
   nurseProfiles       NurseProfile[]
   shifts              Shift[]
   firstAidKits        FirstAidKit[]
@@ -378,6 +394,8 @@ model User {
   safetyInspections SafetyInspection[]
   importJobs       ImportJob[]
   savedFilters     SavedFilter[]
+  stockRequestsCreated InternalStockRequest[] @relation("StockRequestRequester")
+  stockRequestsReviewed InternalStockRequest[] @relation("StockRequestReviewer")
 
   @@map("users")
 }
@@ -951,24 +969,65 @@ model Medication {
   batches          MedicationBatch[]
   administrations  MedicationAdministration[]
   inventoryTx      InventoryTransaction[]
+  stockRequestLines InternalStockRequestLine[]
 
   @@index([clinicId])
   @@map("medications")
 }
 
 model MedicationBatch {
-  id           String   @id @default(uuid()) @db.Uuid
-  medicationId String   @map("medication_id") @db.Uuid
-  batchNumber  String   @map("batch_number")
+  id           String     @id @default(uuid()) @db.Uuid
+  medicationId String     @map("medication_id") @db.Uuid
+  batchNumber  String     @map("batch_number")
   quantity     Int
-  expiryDate   DateTime @map("expiry_date") @db.Date
-  receivedAt   DateTime @default(now()) @map("received_at")
+  expiryDate   DateTime   @map("expiry_date") @db.Date
+  receivedAt   DateTime   @default(now()) @map("received_at")
+  stockScope   StockScope @default(CLINIC) @map("stock_scope")
+  clinicId     String?    @map("clinic_id") @db.Uuid
 
   medication      Medication                   @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  clinic          Clinic?                      @relation(fields: [clinicId], references: [id])
   administrations MedicationAdministration[]
 
   @@index([medicationId, expiryDate])
+  @@index([medicationId, stockScope, clinicId])
   @@map("medication_batches")
+}
+
+model InternalStockRequest {
+  id              String                     @id @default(uuid()) @db.Uuid
+  requestNumber   String                     @unique @map("request_number")
+  toClinicId      String                     @map("to_clinic_id") @db.Uuid
+  requestedById   String                     @map("requested_by_id") @db.Uuid
+  status          InternalStockRequestStatus @default(PENDING)
+  notes           String?
+  reviewedById    String?                    @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?                  @map("reviewed_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+
+  toClinic    Clinic                     @relation("StockRequestClinic", fields: [toClinicId], references: [id])
+  requestedBy User                       @relation("StockRequestRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?                      @relation("StockRequestReviewer", fields: [reviewedById], references: [id])
+  lines       InternalStockRequestLine[]
+
+  @@index([toClinicId, status])
+  @@map("internal_stock_requests")
+}
+
+model InternalStockRequestLine {
+  id                 String @id @default(uuid()) @db.Uuid
+  requestId          String @map("request_id") @db.Uuid
+  medicationId       String @map("medication_id") @db.Uuid
+  quantityRequested  Int    @map("quantity_requested")
+  quantityApproved   Int?   @map("quantity_approved")
+  quantityFulfilled  Int?   @map("quantity_fulfilled")
+
+  request    InternalStockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  medication Medication           @relation(fields: [medicationId], references: [id])
+
+  @@index([requestId])
+  @@map("internal_stock_request_lines")
 }
 
 model InventoryTransaction {

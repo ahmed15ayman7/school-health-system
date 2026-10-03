@@ -38,6 +38,9 @@ function mapResource(pathname: string): Resource {
 
 function mapAction(method: string, pathname: string): "create" | "read" | "update" | "delete" | "export" | "approve" {
   if (pathname.includes("/decision") || pathname.includes("/adjustments")) return "approve";
+  if (pathname.includes("/stock-requests") && (pathname.endsWith("/approve") || pathname.endsWith("/fulfill"))) {
+    return "approve";
+  }
   if (pathname.includes("/export")) return "export";
   if (pathname.includes("/reports/export")) return "export";
   if (method === "POST" && (pathname.endsWith("/close") || pathname.endsWith("/vitals"))) return "update";

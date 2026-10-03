@@ -26,6 +26,22 @@ export async function administerMedication(input: {
   const med = await prisma.medication.findUnique({ where: { id: input.medicationId } });
   if (!med) throw new Error("MED_NOT_FOUND");
 
+  let clinicId: string | null = null;
+  if (input.visitorType === "STUDENT") {
+    const st = await prisma.student.findUnique({
+      where: { id: input.visitorId },
+      select: { clinicId: true },
+    });
+    clinicId = st?.clinicId ?? null;
+  } else {
+    const emp = await prisma.employee.findUnique({
+      where: { id: input.visitorId },
+      select: { clinicId: true },
+    });
+    clinicId = emp?.clinicId ?? input.actor.clinicId ?? null;
+  }
+  if (!clinicId) throw new Error("CLINIC_FORBIDDEN");
+
   const allergyHit = profile?.allergies.some((a) =>
     med.name.toLowerCase().includes(a.type.toLowerCase()) ||
     (med.activeIngredient?.toLowerCase().includes(a.type.toLowerCase()) ?? false),
@@ -38,7 +54,10 @@ export async function administerMedication(input: {
   return prisma.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string; quantity: number }[]>`
       SELECT id, quantity FROM medication_batches
-      WHERE medication_id = ${input.medicationId}::uuid AND quantity > 0
+      WHERE medication_id = ${input.medicationId}::uuid
+        AND quantity > 0
+        AND stock_scope = 'CLINIC'
+        AND clinic_id = ${clinicId}::uuid
       ORDER BY expiry_date ASC
       FOR UPDATE
     `;

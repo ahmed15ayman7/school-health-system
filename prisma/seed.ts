@@ -74,8 +74,14 @@ async function main() {
     clinics.push(
       await prisma.clinic.upsert({
         where: { id },
-        update: { name: clinicNames[i]! },
-        create: { id, schoolId: school.id, name: clinicNames[i]!, location: `مبنى ${i + 1}` },
+        update: { name: clinicNames[i]!, isMainStore: i === 0 },
+        create: {
+          id,
+          schoolId: school.id,
+          name: clinicNames[i]!,
+          location: `مبنى ${i + 1}`,
+          isMainStore: i === 0,
+        },
       }),
     );
   }
@@ -303,7 +309,7 @@ async function main() {
     create: {
       name: "باراسيتامول 500mg",
       activeIngredient: "Paracetamol",
-      clinicId: clinics[1]!.id,
+      clinicId: clinics[0]!.id,
       qrCode: "MED-PARACET-DEMO",
       minQuantity: 10,
       unit: "tablet",
@@ -312,13 +318,29 @@ async function main() {
 
   await prisma.medicationBatch.upsert({
     where: { id: "00000000-0000-4000-8010-000000000001" },
-    update: { quantity: 48 },
+    update: { quantity: 120, stockScope: "MAIN", clinicId: null },
     create: {
       id: "00000000-0000-4000-8010-000000000001",
       medicationId: med.id,
       batchNumber: "BATCH-2026-A",
-      quantity: 48,
+      quantity: 120,
       expiryDate: new Date(Date.now() + 180 * 86400000),
+      stockScope: "MAIN",
+      clinicId: null,
+    },
+  });
+
+  await prisma.medicationBatch.upsert({
+    where: { id: "00000000-0000-4000-8010-000000000003" },
+    update: { quantity: 12 },
+    create: {
+      id: "00000000-0000-4000-8010-000000000003",
+      medicationId: med.id,
+      batchNumber: "BATCH-2026-A",
+      quantity: 12,
+      expiryDate: new Date(Date.now() + 180 * 86400000),
+      stockScope: "CLINIC",
+      clinicId: clinics[1]!.id,
     },
   });
 

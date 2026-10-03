@@ -16,8 +16,8 @@ export default function MedicationsPage() {
   return (
     <div className="space-y-4">
       <p className="rounded-xl border border-accent/20 bg-accent/[0.06] px-4 py-3 text-xs font-bold leading-relaxed text-primary">
-        كل عيادة لها قائمة أدوية ومخزون مستقل. من هنا تعرّف الأدوية، ثم من «استلام مخزون» تضيف الكميات
-        (دفعات) — الصرف من العيادة يخصم من رصيدها فقط.
+        دليل الأدوية مشترك. المخزن الرئيسي يستلم الدفعات؛ كل عيادة لها مخزون فرعي عبر «طلب من
+        الرئيسي». الصرف في العيادة يخصم من المخزون الفرعي فقط.
       </p>
       <AutoDataTable
         title="أدوية العيادة"

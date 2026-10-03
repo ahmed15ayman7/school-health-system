@@ -70,7 +70,7 @@ const matrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
     emergency: ["create", "read", "update", "export"],
     medications: ["create", "read", "update", "export"],
     mar: ["read", "export"],
-    inventory: ["create", "read", "update", "export"],
+    inventory: ["create", "read", "update", "export", "approve"],
     canteen: ["read", "export"],
     nursing: ["read", "update", "export"],
     safety: ["read", "update", "export"],
@@ -127,7 +127,7 @@ const matrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
   PHARMACY: {
     medications: ["create", "read", "update", "delete"],
     mar: ["read"],
-    inventory: ["create", "read", "update", "delete"],
+    inventory: ["create", "read", "update", "delete", "approve"],
     reports: ["read", "export"],
   },
   CANTEEN_INSPECTOR: {

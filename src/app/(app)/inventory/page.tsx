@@ -10,31 +10,49 @@ import type { UserRole } from "@prisma/client";
 export default function InventoryPage() {
   const { data: session } = useSession();
   const role = session?.user?.role as UserRole | undefined;
-  const canReceive = role ? can(role, "inventory", "create") : false;
+  const canStockIn = role ? can(role, "inventory", "create") : false;
   const canDefineMed = role ? can(role, "medications", "create") : false;
 
   return (
     <div className="space-y-4">
       <p className="rounded-xl border border-border bg-card px-4 py-3 text-xs font-bold leading-relaxed text-muted">
-        عرض دفعات المخزون حسب العيادة (الكمية وتاريخ الصلاحية). التنبيهات من «تنبيهات المخزون».
+        مخزون فرعي للعيادة (بعد التحويل من الرئيسي). للرئيسي: «المخزن الرئيسي». لطلب كميات: «طلب
+        من الرئيسي».
       </p>
       <AutoDataTable
-        title="مخزون العيادة (دفعات)"
+        title="مخزون العيادة الفرعي"
         apiPath="/api/v1/inventory"
         resourceKey="inventory"
         headerActions={
           <>
-            {canReceive && (
-              <Link href="/inventory/receive">
+            {canStockIn && (
+              <Link href="/inventory/requests/new">
                 <Button size="sm" type="button">
-                  + استلام دفعة
+                  + طلب من الرئيسي
+                </Button>
+              </Link>
+            )}
+            <Link href="/inventory/requests">
+              <Button size="sm" variant="outline" type="button">
+                الطلبات
+              </Button>
+            </Link>
+            <Link href="/inventory/main">
+              <Button size="sm" variant="outline" type="button">
+                المخزن الرئيسي
+              </Button>
+            </Link>
+            {canStockIn && (
+              <Link href="/inventory/receive">
+                <Button size="sm" variant="outline" type="button">
+                  استلام للرئيسي
                 </Button>
               </Link>
             )}
             {canDefineMed && (
               <Link href="/medications/new">
                 <Button size="sm" variant="outline" type="button">
-                  + تعريف دواء
+                  تعريف دواء
                 </Button>
               </Link>
             )}

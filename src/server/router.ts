@@ -10,10 +10,17 @@ import { notificationChannel, notifyGuardianOnReferralComplete } from "@/server/
 import { administerMedication } from "@/server/pharmacy/mar.service";
 import {
   createMedication,
-  listInventoryBatches,
+  listClinicInventoryBatches,
   listMedicationsForActor,
   receiveStock,
 } from "@/server/pharmacy/medications.service";
+import {
+  createStockRequest,
+  fulfillStockRequest,
+  listMainInventory,
+  listStockRequests,
+  reviewStockRequest,
+} from "@/server/pharmacy/stock-request.service";
 import { detectFrequentVisitors } from "@/server/alerts/frequent.service";
 import { parseStudentImport } from "@/server/import/excel.service";
 import { generateQrDataUrl } from "@/server/qr/qr.service";
@@ -487,8 +494,88 @@ export async function handleApi(
     }
   }
 
+  if (resource === "inventory" && method === "GET" && pathname.includes("/stock-requests")) {
+    return ok(await listStockRequests(actor));
+  }
+
+  if (resource === "inventory" && method === "GET" && pathname.endsWith("/main")) {
+    return ok(await listMainInventory());
+  }
+
   if (resource === "inventory" && method === "GET") {
-    return ok(await listInventoryBatches(actor));
+    return ok(await listClinicInventoryBatches(actor));
+  }
+
+  if (resource === "inventory" && method === "POST" && pathname.endsWith("/stock-requests")) {
+    try {
+      const body = await req.json();
+      return ok(await createStockRequest(actor, body), undefined, 201);
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") {
+        return fail("VALIDATION_ERROR", "بيانات الطلب غير صالحة", 400);
+      }
+      if (e instanceof Error && e.message === "CLINIC_FORBIDDEN") {
+        return fail("CLINIC_FORBIDDEN", "الطلب مرتبط بعيادة المستخدم", 403);
+      }
+      throw e;
+    }
+  }
+
+  if (
+    resource === "inventory" &&
+    method === "POST" &&
+    pathname.includes("/stock-requests") &&
+    pathname.endsWith("/approve") &&
+    params?.id
+  ) {
+    try {
+      const body = await req.json();
+      return ok(await reviewStockRequest(actor, params.id, { ...body, decision: "APPROVED" }));
+    } catch (e) {
+      if (e instanceof Error && e.message === "FORBIDDEN") return fail("FORBIDDEN", "صلاحية الصيدلية مطلوبة", 403);
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الطلب غير موجود", 404);
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") return fail("VALIDATION_ERROR", "لا يمكن مراجعة الطلب", 400);
+      throw e;
+    }
+  }
+
+  if (
+    resource === "inventory" &&
+    method === "POST" &&
+    pathname.includes("/stock-requests") &&
+    pathname.endsWith("/reject") &&
+    params?.id
+  ) {
+    try {
+      const body = await req.json();
+      return ok(await reviewStockRequest(actor, params.id, { ...body, decision: "REJECTED" }));
+    } catch (e) {
+      if (e instanceof Error && e.message === "FORBIDDEN") return fail("FORBIDDEN", "صلاحية الصيدلية مطلوبة", 403);
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الطلب غير موجود", 404);
+      throw e;
+    }
+  }
+
+  if (
+    resource === "inventory" &&
+    method === "POST" &&
+    pathname.includes("/stock-requests") &&
+    pathname.endsWith("/fulfill") &&
+    params?.id
+  ) {
+    try {
+      return ok(await fulfillStockRequest(actor, params.id));
+    } catch (e) {
+      if (e instanceof Error && e.message === "FORBIDDEN") return fail("FORBIDDEN", "صلاحية الصيدلية مطلوبة", 403);
+      if (e instanceof Error && e.message === "NOT_FOUND") return fail("NOT_FOUND", "الطلب غير موجود", 404);
+      if (e instanceof Error && e.message === "INSUFFICIENT_STOCK") {
+        return fail("INSUFFICIENT_STOCK", "رصيد المخزن الرئيسي غير كافٍ", 409);
+      }
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") {
+        return fail("VALIDATION_ERROR", "الطلب غير جاهز للتنفيذ", 400);
+      }
+      throw e;
+    }
   }
 
   if (resource === "inventory" && method === "POST" && req.nextUrl.pathname.includes("/adjustments")) {
@@ -509,19 +596,24 @@ export async function handleApi(
     return ok(tx);
   }
 
-  if (resource === "inventory" && method === "POST" && !pathname.includes("/adjustments")) {
+  if (
+    resource === "inventory" &&
+    method === "POST" &&
+    !pathname.includes("/adjustments") &&
+    !pathname.includes("/stock-requests")
+  ) {
     try {
       const body = await req.json();
       return ok(await receiveStock(actor, body), undefined, 201);
     } catch (e) {
+      if (e instanceof Error && e.message === "FORBIDDEN") {
+        return fail("FORBIDDEN", "استلام المخزن الرئيسي للصيدلية فقط", 403);
+      }
       if (e instanceof Error && e.message === "VALIDATION_ERROR") {
         return fail("VALIDATION_ERROR", "بيانات الاستلام غير صالحة", 400);
       }
       if (e instanceof Error && e.message === "NOT_FOUND") {
         return fail("NOT_FOUND", "الدواء غير موجود", 404);
-      }
-      if (e instanceof Error && e.message === "CLINIC_FORBIDDEN") {
-        return fail("CLINIC_FORBIDDEN", "لا يمكن استلام مخزون لعيادة أخرى", 403);
       }
       throw e;
     }

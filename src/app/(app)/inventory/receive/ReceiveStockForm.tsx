@@ -69,10 +69,10 @@ export default function ReceiveStockForm() {
             <p className="text-xs font-bold text-white/70">إدخال مخزون</p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
               <PackagePlus className="h-6 w-6" aria-hidden />
-              استلام دفعة للعيادة
+              استلام للمخزن الرئيسي
             </h2>
             <p className="mt-2 text-sm font-semibold text-white/85">
-              تُضاف الكمية كدفعة (Batch) ويُسجَّل حركة IN في سجل المخزون.
+              تُضاف الكمية للمخزن المركزي فقط. العيادات تطلب التحويل عبر «طلب مخزون داخلي».
             </p>
           </div>
           <Link href="/inventory">

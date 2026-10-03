@@ -8,6 +8,7 @@ const PREFIX: Record<string, string> = {
   REF: "REF",
   PSY: "PSY",
   SOC: "SOC",
+  ISR: "ISR",
 };
 
 export async function nextSequence(tx: Tx, scope: keyof typeof PREFIX | string, year?: number) {

@@ -2,26 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CENTRAL_ROLES } from "@/lib/rbac";
-import type { UserRole } from "@prisma/client";
 import { toast } from "sonner";
 import { ArrowRight, Pill } from "lucide-react";
 
-type ClinicOpt = { id: string; name: string; code?: string };
-
 export default function NewMedicationForm() {
   const router = useRouter();
-  const { data: session } = useSession();
-  const role = session?.user?.role as UserRole | undefined;
-  const userClinicId = session?.user?.clinicId ?? null;
-  const isCentral = role != null && CENTRAL_ROLES.includes(role);
-
-  const [clinics, setClinics] = useState<ClinicOpt[]>([]);
-  const [clinicId, setClinicId] = useState("");
   const [name, setName] = useState("");
   const [activeIngredient, setActiveIngredient] = useState("");
   const [dosageForm, setDosageForm] = useState("");
@@ -32,28 +20,8 @@ export default function NewMedicationForm() {
   const [storageLocation, setStorageLocation] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!isCentral) {
-      if (userClinicId) setClinicId(userClinicId);
-      return;
-    }
-    fetch("/api/v1/medications/clinic-options")
-      .then((r) => r.json())
-      .then((j) => {
-        const list = (j.data ?? []) as ClinicOpt[];
-        setClinics(list);
-        if (list[0]) setClinicId(list[0].id);
-      })
-      .catch(() => toast.error("تعذّر تحميل العيادات"));
-  }, [isCentral, userClinicId]);
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const targetClinic = isCentral ? clinicId : userClinicId;
-    if (!targetClinic) {
-      toast.error("حدّد العيادة");
-      return;
-    }
     if (!name.trim()) {
       toast.error("اسم الدواء مطلوب");
       return;
@@ -72,7 +40,6 @@ export default function NewMedicationForm() {
         minQuantity: Number(minQuantity) || 0,
         supplier: supplier.trim() || undefined,
         storageLocation: storageLocation.trim() || undefined,
-        clinicId: targetClinic,
       }),
     });
     setLoading(false);
@@ -81,7 +48,7 @@ export default function NewMedicationForm() {
       toast.error(j.error?.message ?? "فشل الحفظ");
       return;
     }
-    toast.success("تم تعريف الدواء — يمكنك استلام دفعة مخزون الآن");
+    toast.success("تم تعريف الدواء — استلم الكمية في المخزن الرئيسي");
     router.push("/inventory/receive");
   }
 
@@ -90,13 +57,14 @@ export default function NewMedicationForm() {
       <div className="rounded-2xl bg-gradient-to-l from-[#0e2350] to-[#2563eb] p-5 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-white/70">مخزون العيادة</p>
+            <p className="text-xs font-bold text-white/70">دليل الأدوية</p>
             <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
               <Pill className="h-6 w-6" aria-hidden />
               تعريف دواء جديد
             </h2>
             <p className="mt-2 text-sm font-semibold text-white/85">
-              كل دواء مربوط بعيادة واحدة. بعد التعريف، استلم كمية من صفحة «استلام مخزون».
+              التعريف للدليل المركزي. الكميات تُستلم في المخزن الرئيسي ثم تُحوَّل للعيادات بطلب
+              داخلي.
             </p>
           </div>
           <Link href="/medications">
@@ -109,29 +77,6 @@ export default function NewMedicationForm() {
       </div>
 
       <section className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
-        {isCentral ? (
-          <div>
-            <label className="mb-1.5 block text-xs font-bold text-muted">العيادة</label>
-            <select
-              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-bold"
-              value={clinicId}
-              onChange={(e) => setClinicId(e.target.value)}
-              required
-            >
-              {clinics.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.code ? ` (${c.code})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-muted">
-            يُسجَّل الدواء في مخزون عيادتك الحالية فقط.
-          </p>
-        )}
-
         <div>
           <label className="mb-1.5 block text-xs font-bold text-muted">اسم الدواء *</label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: باراسيتامول 500mg" required />
@@ -156,12 +101,12 @@ export default function NewMedicationForm() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-muted">حد إعادة الطلب</label>
+            <label className="mb-1.5 block text-xs font-bold text-muted">حد إعادة الطلب (للعيادة)</label>
             <Input type="number" min={0} value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-muted">مكان التخزين في العيادة</label>
-            <Input value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="خزانة A / رف 2" />
+            <label className="mb-1.5 block text-xs font-bold text-muted">مكان التخزين (رئيسي)</label>
+            <Input value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="خزانة A" />
           </div>
         </div>
         <div>
