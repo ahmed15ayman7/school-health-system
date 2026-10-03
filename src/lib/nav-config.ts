@@ -74,6 +74,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "الصيدلية والمخزون",
     items: [
       { href: "/medications", label: "الأدوية", icon: Pill, resource: "medications", action: "read", ready: true },
+      { href: "/medications/new", label: "تعريف دواء", icon: Pill, resource: "medications", action: "create", ready: true },
+      { href: "/inventory/receive", label: "استلام مخزون", icon: Package, resource: "inventory", action: "create", ready: true },
       { href: "/medications/doses", label: "جرعات اليوم", icon: Pill, resource: "mar", action: "read", ready: true },
       { href: "/inventory", label: "المخزون", icon: Package, resource: "inventory", action: "read", ready: true },
     ],

@@ -8,6 +8,12 @@ import { nextSequence } from "@/lib/numbering";
 import { checkIdempotency, hashResponse } from "@/lib/idempotency";
 import { notificationChannel, notifyGuardianOnReferralComplete } from "@/server/notifications/channels";
 import { administerMedication } from "@/server/pharmacy/mar.service";
+import {
+  createMedication,
+  listInventoryBatches,
+  listMedicationsForActor,
+  receiveStock,
+} from "@/server/pharmacy/medications.service";
 import { detectFrequentVisitors } from "@/server/alerts/frequent.service";
 import { parseStudentImport } from "@/server/import/excel.service";
 import { generateQrDataUrl } from "@/server/qr/qr.service";
@@ -451,26 +457,38 @@ export async function handleApi(
     return ok(batches);
   }
 
-  if (resource === "medications" && method === "GET") {
-    const data = await prisma.medication.findMany({
-      where: { ...scope, isDeleted: false },
-      include: { batches: true },
+  if (resource === "medications" && method === "GET" && pathname.endsWith("/clinic-options")) {
+    const where =
+      scope.clinicId != null ? { id: scope.clinicId, isActive: true } : { isActive: true };
+    const data = await prisma.clinic.findMany({
+      where,
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
     return ok(data);
   }
 
+  if (resource === "medications" && method === "GET") {
+    return ok(await listMedicationsForActor(actor));
+  }
+
   if (resource === "medications" && method === "POST") {
-    const body = await req.json();
-    const med = await prisma.medication.create({ data: body });
-    return ok(med, undefined, 201);
+    try {
+      const body = await req.json();
+      return ok(await createMedication(actor, body), undefined, 201);
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") {
+        return fail("VALIDATION_ERROR", "بيانات الدواء غير مكتملة أو غير صالحة", 400);
+      }
+      if (e instanceof Error && e.message === "CLINIC_FORBIDDEN") {
+        return fail("CLINIC_FORBIDDEN", "لا يمكن إضافة دواء لعيادة أخرى", 403);
+      }
+      throw e;
+    }
   }
 
   if (resource === "inventory" && method === "GET") {
-    const batches = await prisma.medicationBatch.findMany({
-      include: { medication: true },
-      where: scope.clinicId ? { medication: { clinicId: scope.clinicId } } : undefined,
-    });
-    return ok(batches);
+    return ok(await listInventoryBatches(actor));
   }
 
   if (resource === "inventory" && method === "POST" && req.nextUrl.pathname.includes("/adjustments")) {
@@ -491,25 +509,22 @@ export async function handleApi(
     return ok(tx);
   }
 
-  if (resource === "inventory" && method === "POST") {
-    const body = await req.json();
-    const result = await prisma.$transaction(async (tx) => {
-      const record = await tx.inventoryTransaction.create({
-        data: { ...body, performedById: actor.userId },
-      });
-      if (body.transactionType === "IN") {
-        await tx.medicationBatch.create({
-          data: {
-            medicationId: body.medicationId,
-            batchNumber: body.batchNumber ?? "BATCH",
-            quantity: body.quantity,
-            expiryDate: new Date(body.expiryDate),
-          },
-        });
+  if (resource === "inventory" && method === "POST" && !pathname.includes("/adjustments")) {
+    try {
+      const body = await req.json();
+      return ok(await receiveStock(actor, body), undefined, 201);
+    } catch (e) {
+      if (e instanceof Error && e.message === "VALIDATION_ERROR") {
+        return fail("VALIDATION_ERROR", "بيانات الاستلام غير صالحة", 400);
       }
-      return record;
-    });
-    return ok(result, undefined, 201);
+      if (e instanceof Error && e.message === "NOT_FOUND") {
+        return fail("NOT_FOUND", "الدواء غير موجود", 404);
+      }
+      if (e instanceof Error && e.message === "CLINIC_FORBIDDEN") {
+        return fail("CLINIC_FORBIDDEN", "لا يمكن استلام مخزون لعيادة أخرى", 403);
+      }
+      throw e;
+    }
   }
 
   if (resource === "canteen" && method === "GET" && pathname.includes("/staff-certificates")) {
