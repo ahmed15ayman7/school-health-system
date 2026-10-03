@@ -11,4 +11,14 @@ describe("rbac", () => {
   it("allows HR to approve recommendations", () => {
     expect(can("HR", "recommendations", "approve")).toBe(true);
   });
+  it("denies EHS from psychology", () => {
+    expect(can("EHS_OFFICER", "psychology", "read")).toBe(false);
+  });
+  it("allows EHS safety export", () => {
+    expect(can("EHS_OFFICER", "safety", "export")).toBe(true);
+  });
+  it("executive reads reports only scope", () => {
+    expect(can("EXECUTIVE", "health_profiles", "read")).toBe(false);
+    expect(can("EXECUTIVE", "reports", "read")).toBe(true);
+  });
 });

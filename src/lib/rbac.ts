@@ -53,6 +53,14 @@ const matrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
       ] as Resource[]
     ).map((r) => [r, ALL]),
   ) as Partial<Record<Resource, Action[]>>,
+  EXECUTIVE: {
+    reports: ["read", "export"],
+    circulars: ["read"],
+    settings: ["read"],
+    emergency: ["read"],
+    student_referrals: ["read"],
+    visits: ["read"],
+  },
   MEDICAL_MANAGER: {
     students: ["create", "read", "update", "export"],
     employees: ["create", "read", "update", "export"],
@@ -72,6 +80,13 @@ const matrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
     social: ["read", "export"],
     internal_referrals: ["create", "read", "update"],
     recommendations: ["create", "read", "update", "export"],
+  },
+  EHS_OFFICER: {
+    safety: ["create", "read", "update", "export"],
+    canteen: ["create", "read", "update", "export"],
+    reports: ["read", "export"],
+    circulars: ["read"],
+    inventory: ["read"],
   },
   HEAD_NURSE: {
     students: ["read", "update"],
@@ -127,6 +142,17 @@ const matrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
   SCHOOL_ADMIN: {
     reports: ["read", "export"],
     student_referrals: ["create", "read"],
+    visits: ["read"],
+    emergency: ["read"],
+    mar: ["read"],
+  },
+  DEPUTY_ADMIN: {
+    reports: ["read"],
+    student_referrals: ["create", "read", "update"],
+    visits: ["read"],
+    emergency: ["read"],
+    mar: ["read"],
+    circulars: ["read"],
   },
   PSYCHOLOGIST: {
     students: ["read"],
@@ -167,4 +193,17 @@ export function requirePermission(role: UserRole, resource: Resource, action: Ac
   }
 }
 
-export const CENTRAL_ROLES: UserRole[] = ["SUPER_ADMIN", "MEDICAL_MANAGER"];
+export const CENTRAL_ROLES: UserRole[] = ["SUPER_ADMIN", "MEDICAL_MANAGER", "EXECUTIVE"];
+
+export function isExecutiveRole(role: UserRole): boolean {
+  return role === "EXECUTIVE";
+}
+
+export function canAccessPsychSocial(role: UserRole): boolean {
+  return (
+    role === "SUPER_ADMIN" ||
+    role === "MEDICAL_MANAGER" ||
+    role === "PSYCHOLOGIST" ||
+    role === "SOCIAL_WORKER"
+  );
+}

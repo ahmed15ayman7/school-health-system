@@ -19,6 +19,8 @@ function mapResource(pathname: string): Resource {
   if (pathname.includes("/inventory/adjustments")) return "inventory";
   if (pathname.includes("/inventory")) return "inventory";
   if (pathname.includes("/canteen/incidents") || pathname.includes("/canteen/inspections")) return "canteen";
+  if (pathname.includes("/safety")) return "safety";
+  if (pathname.includes("/jobs/")) return "settings";
   if (pathname.includes("/psychology")) return "psychology";
   if (pathname.includes("/social")) return "social";
   if (pathname.includes("/internal-referrals")) return "internal_referrals";
@@ -37,7 +39,9 @@ function mapResource(pathname: string): Resource {
 function mapAction(method: string, pathname: string): "create" | "read" | "update" | "delete" | "export" | "approve" {
   if (pathname.includes("/decision") || pathname.includes("/adjustments")) return "approve";
   if (pathname.includes("/export")) return "export";
+  if (pathname.includes("/reports/export")) return "export";
   if (method === "POST" && (pathname.endsWith("/close") || pathname.endsWith("/vitals"))) return "update";
+  if (pathname.includes("/jobs/")) return "update";
   if (method === "POST") return "create";
   if (method === "PUT" || method === "PATCH") return "update";
   if (method === "DELETE") return "delete";

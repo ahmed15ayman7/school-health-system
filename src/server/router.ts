@@ -30,8 +30,28 @@ import { getStudentHistory } from "@/server/health/history.service";
 import { getClinicDashboard } from "@/server/clinics/clinics.service";
 import { getMedicalProfile, profileToAlerts } from "@/server/health/health.service";
 import { advancedSearch } from "@/server/search/search.service";
+import {
+  listSafetyInspections,
+  listAedDevices,
+  listFirstAidKits,
+  listScienceLabs,
+  listWaterTests,
+  listLicenses,
+  listLabChemicals,
+  createSafetyInspection,
+} from "@/server/safety/safety.service";
+import { getReportsSummary } from "@/server/reports/reports.service";
+import { exportMedicalExcel, exportSafetyExcel } from "@/server/reports/export.service";
+import {
+  listTodayDoses,
+  createMedicationOrder,
+  runDoseReminders,
+} from "@/server/pharmacy/med-schedule.service";
+import { runComplianceAlerts } from "@/server/jobs/compliance-alerts.service";
+import { canAccessPsychSocial } from "@/lib/rbac";
 import type { Resource } from "@/lib/rbac";
 import type { Prisma, VisitorType } from "@prisma/client";
+import { NextResponse } from "next/server";
 
 export async function handleApi(
   req: NextRequest,
@@ -43,6 +63,48 @@ export async function handleApi(
   const pathname = req.nextUrl.pathname;
   const scope = clinicFilter(actor.role, actor.clinicId);
   const { page, pageSize, skip } = parsePagination(req.nextUrl.searchParams);
+
+  if (pathname.includes("/jobs/") && method === "POST") {
+    const secret = req.headers.get("x-cron-secret");
+    if (secret !== process.env.CRON_SECRET) return fail("FORBIDDEN", "Cron secret invalid", 403);
+    if (pathname.includes("dose-reminders")) return ok(await runDoseReminders());
+    if (pathname.includes("compliance-alerts")) return ok(await runComplianceAlerts());
+    return fail("NOT_FOUND", "Unknown job", 404);
+  }
+
+  if (resource === "safety" && method === "GET" && pathname.includes("/inspections")) {
+    return ok(await listSafetyInspections(actor));
+  }
+  if (resource === "safety" && method === "POST" && pathname.includes("/inspections")) {
+    const body = await req.json();
+    return ok(await createSafetyInspection(actor, body), undefined, 201);
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/aed")) {
+    return ok(await listAedDevices(actor));
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/first-aid")) {
+    return ok(await listFirstAidKits(actor));
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/labs")) {
+    return ok(await listScienceLabs(actor));
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/chemicals")) {
+    return ok(await listLabChemicals(actor));
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/water-tests")) {
+    return ok(await listWaterTests());
+  }
+  if (resource === "safety" && method === "GET" && pathname.includes("/licenses")) {
+    return ok(await listLicenses());
+  }
+
+  if (resource === "medications" && method === "GET" && pathname.includes("/doses/today")) {
+    return ok(await listTodayDoses(actor));
+  }
+  if (resource === "medications" && method === "POST" && pathname.includes("/orders")) {
+    const body = await req.json();
+    return ok(await createMedicationOrder(actor, body), undefined, 201);
+  }
 
   if (pathname.includes("/alerts/frequent") && method === "GET") {
     return ok(await detectFrequentVisitors());
@@ -358,6 +420,8 @@ export async function handleApi(
       unit: body.unit,
       reason: body.reason,
       allergyOverride: body.allergyOverride,
+      scheduledDoseId: body.scheduledDoseId,
+      vitalsJson: body.vitalsJson,
     });
     return ok(result, undefined, 201);
   }
@@ -437,6 +501,10 @@ export async function handleApi(
     return ok(result, undefined, 201);
   }
 
+  if (resource === "canteen" && method === "GET" && pathname.includes("/staff-certificates")) {
+    return ok(await prisma.canteenStaffHealthCertificate.findMany({ orderBy: { expiryDate: "asc" } }));
+  }
+
   if (resource === "canteen" && method === "GET") {
     const data = await prisma.canteenInspection.findMany({
       include: { items: true },
@@ -468,9 +536,30 @@ export async function handleApi(
     return ok(inspection, undefined, 201);
   }
 
+  if (resource === "psychology" && !canAccessPsychSocial(actor.role)) {
+    return fail("FORBIDDEN", "لا صلاحية للوصول", 403);
+  }
+  if (resource === "social" && !canAccessPsychSocial(actor.role)) {
+    return fail("FORBIDDEN", "لا صلاحية للوصول", 403);
+  }
+
   if (resource === "psychology" && method === "GET") {
-    const data = await prisma.psychologySession.findMany({ include: { student: true }, take: pageSize });
+    const data = await prisma.psychologySession.findMany({ include: { student: true, assessments: true }, take: pageSize });
     return ok(data);
+  }
+
+  if (resource === "psychology" && method === "POST" && pathname.includes("/assessments")) {
+    const body = await req.json();
+    const created = await prisma.psychologicalAssessment.create({
+      data: {
+        sessionId: body.sessionId,
+        tool: body.tool,
+        score: body.score,
+        responsesJson: body.responsesJson,
+        notes: body.notes,
+      },
+    });
+    return ok(created, undefined, 201);
   }
 
   if (resource === "psychology" && method === "POST") {
@@ -540,9 +629,27 @@ export async function handleApi(
     return ok(created, undefined, 201);
   }
 
+  if (resource === "reports" && method === "GET" && pathname.includes("/export/medical")) {
+    const buf = await exportMedicalExcel(actor.role, actor.clinicId);
+    return new NextResponse(buf, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="medical-report.xlsx"',
+      },
+    });
+  }
+  if (resource === "reports" && method === "GET" && pathname.includes("/export/safety")) {
+    const buf = await exportSafetyExcel();
+    return new NextResponse(buf, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="safety-report.xlsx"',
+      },
+    });
+  }
+
   if (resource === "reports" && method === "GET") {
-    const visits = await prisma.visit.count();
-    return ok({ visits });
+    return ok(await getReportsSummary(actor.role, actor.clinicId));
   }
 
   if (resource === "reports" && method === "POST") {
@@ -552,7 +659,7 @@ export async function handleApi(
       tableName: "reports",
       newValue: { format: (await req.json()).format },
     });
-    return ok({ message: "تم تسجيل طلب التصدير — استخدم /print للطباعة" });
+    return ok({ message: "استخدم GET /reports/export/medical أو /export/safety" });
   }
 
   if (resource === "settings" && method === "GET" && req.nextUrl.pathname.includes("/clinics")) {

@@ -4,6 +4,6 @@ import { AutoDataTable } from "@/components/shared/AutoDataTable";
 
 export default function Page() {
   return (
-    <AutoDataTable title="حقائب الإسعاف" apiPath="/api/v1/safety/first-aid" resourceKey="safety/first-aid" />
+    <AutoDataTable title="مختبرات العلوم" apiPath="/api/v1/safety/labs" resourceKey="safety/labs" />
   );
 }

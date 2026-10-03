@@ -16,6 +16,9 @@ enum UserRole {
   CANTEEN_INSPECTOR
   HR
   SCHOOL_ADMIN
+  DEPUTY_ADMIN
+  EXECUTIVE
+  EHS_OFFICER
   PSYCHOLOGIST
   SOCIAL_WORKER
   TEACHER
@@ -195,6 +198,37 @@ enum SafetyInspectionType {
   AED
   EMERGENCY_EXIT
   GENERAL
+  SCIENCE_CHEMISTRY
+  SCIENCE_PHYSICS
+  SCIENCE_BIOLOGY
+  WATER_QUALITY
+  FIRE_SAFETY
+  EMERGENCY_EGRESS
+}
+
+enum LabAssetType {
+  EYEWASH
+  EMERGENCY_SHOWER
+  FUME_HOOD
+  GAS_DETECTOR
+  GAS_CYLINDER
+  FIRE_EXTINGUISHER_CO2
+  FIRE_EXTINGUISHER_DCP
+}
+
+enum LicenseHolderType {
+  CLINIC
+  NURSE
+  CANTEEN_STAFF
+  OTHER
+}
+
+enum ScheduledDoseStatus {
+  PENDING
+  DUE
+  ADMINISTERED
+  SKIPPED
+  MISSED
 }
 
 enum NotificationType {
@@ -206,6 +240,7 @@ enum NotificationType {
   PERIODIC_CHECK
   REFERRAL
   FREQUENT_VISITOR
+  MED_DOSE_REMINDER
 }
 
 enum MedicationCategory {
@@ -249,6 +284,7 @@ model Clinic {
   firstAidKits        FirstAidKit[]
   aedDevices          AedDevice[]
   safetyInspections   SafetyInspection[]
+  scienceLabs         ScienceLab[]
 
   @@map("clinics")
 }
@@ -430,6 +466,7 @@ model Student {
   foodIncidentLinks   FoodIncidentStudent[]
   frequentAlerts      FrequentVisitorAlert[]
   guardianPrefs       GuardianNotificationPreference[]
+  medicationOrders    StudentMedicationOrder[]
 
   @@index([academicNumber])
   @@index([qrCode])
@@ -976,6 +1013,9 @@ model MedicationAdministration {
   medication Medication       @relation(fields: [medicationId], references: [id])
   batch      MedicationBatch? @relation(fields: [batchId], references: [id])
   nurse      User             @relation(fields: [nurseId], references: [id])
+  scheduledDose ScheduledDose? @relation(fields: [scheduledDoseId], references: [id])
+  scheduledDoseId String?     @unique @map("scheduled_dose_id") @db.Uuid
+  vitalsJson Json?            @map("vitals_json")
 
   @@map("medication_administrations")
 }
@@ -1305,4 +1345,134 @@ model ImportError {
   job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@map("import_errors")
+}
+
+model ScienceLab {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String?  @map("clinic_id") @db.Uuid
+  name      String
+  labType   String   @map("lab_type")
+  building  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  clinic    Clinic?    @relation(fields: [clinicId], references: [id])
+  assets    LabAsset[]
+  chemicals LabChemical[]
+
+  @@map("science_labs")
+}
+
+model LabAsset {
+  id             String       @id @default(uuid()) @db.Uuid
+  labId          String       @map("lab_id") @db.Uuid
+  assetType      LabAssetType @map("asset_type")
+  location       String
+  status         String       @default("operational")
+  lastTestDate   DateTime?    @map("last_test_date") @db.Date
+  nextDueDate    DateTime?    @map("next_due_date") @db.Date
+  certificateUrl String?      @map("certificate_url")
+  notes          String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  lab ScienceLab @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@index([nextDueDate])
+  @@map("lab_assets")
+}
+
+model LabChemical {
+  id              String    @id @default(uuid()) @db.Uuid
+  labId           String    @map("lab_id") @db.Uuid
+  name            String
+  casNumber       String?   @map("cas_number")
+  quantity        String?
+  storageLocation String?   @map("storage_location")
+  hazardClass     String?   @map("hazard_class")
+  expiryDate      DateTime? @map("expiry_date") @db.Date
+  isBlocked       Boolean   @default(false) @map("is_blocked")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  lab ScienceLab @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@index([expiryDate])
+  @@map("lab_chemicals")
+}
+
+model WaterQualityTest {
+  id                    String   @id @default(uuid()) @db.Uuid
+  siteName              String   @map("site_name")
+  testDate              DateTime @map("test_date") @db.Date
+  nextDueDate           DateTime @map("next_due_date") @db.Date
+  microbiologicalResult String?  @map("microbiological_result")
+  chemicalResult        String?  @map("chemical_result")
+  certificateUrl        String?  @map("certificate_url")
+  notes                 String?
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([nextDueDate])
+  @@map("water_quality_tests")
+}
+
+model ProfessionalLicense {
+  id          String            @id @default(uuid()) @db.Uuid
+  holderType  LicenseHolderType @map("holder_type")
+  holderName  String            @map("holder_name")
+  holderRefId String?           @map("holder_ref_id") @db.Uuid
+  licenseNumber String?         @map("license_number")
+  issuedAt    DateTime?         @map("issued_at") @db.Date
+  expiryDate  DateTime          @map("expiry_date") @db.Date
+  documentUrl String?           @map("document_url")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@index([expiryDate])
+  @@map("professional_licenses")
+}
+
+model CanteenStaffHealthCertificate {
+  id          String   @id @default(uuid()) @db.Uuid
+  staffName   String   @map("staff_name")
+  employeeId  String?  @map("employee_id") @db.Uuid
+  canteenId   String?  @map("canteen_id") @db.Uuid
+  expiryDate  DateTime @map("expiry_date") @db.Date
+  blockWork   Boolean  @default(false) @map("block_work")
+  documentUrl String?  @map("document_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([expiryDate])
+  @@map("canteen_staff_health_certificates")
+}
+
+model StudentMedicationOrder {
+  id            String   @id @default(uuid()) @db.Uuid
+  studentId     String   @map("student_id") @db.Uuid
+  medicationName String  @map("medication_name")
+  dose          String
+  unit          String
+  scheduleJson  Json     @map("schedule_json")
+  requiresVitalsJson Json @default("{}") @map("requires_vitals_json")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdById   String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+  doses   ScheduledDose[]
+
+  @@map("student_medication_orders")
+}
+
+model ScheduledDose {
+  id         String              @id @default(uuid()) @db.Uuid
+  orderId    String              @map("order_id") @db.Uuid
+  dueAt      DateTime            @map("due_at")
+  status     ScheduledDoseStatus @default(PENDING)
+  remindedAt DateTime?           @map("reminded_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  order           StudentMedicationOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  administration  MedicationAdministration?
+
+  @@index([dueAt, status])
+  @@map("scheduled_doses")
 }

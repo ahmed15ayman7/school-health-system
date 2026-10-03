@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { NotificationType, OutboundChannel } from "@prisma/client";
+import type { NotificationType, OutboundChannel, OutboundMessageStatus } from "@prisma/client";
+import { sendExternalMessage } from "@/server/notifications/providers";
 
 export type NotifyPayload = {
   userId?: string;
@@ -29,12 +30,15 @@ class DefaultNotificationChannel implements NotificationChannel {
   }
 
   async sendOutbound(channel: OutboundChannel, recipient: string, body: string, metadata?: object) {
+    const result = await sendExternalMessage(channel, recipient, body);
+    const status: OutboundMessageStatus =
+      result === "SENT" ? "SENT" : result === "FAILED" ? "FAILED" : "SIMULATED";
     await prisma.outboundMessage.create({
       data: {
         channel,
         recipient,
         body,
-        status: "SIMULATED",
+        status,
         metadata: metadata ?? {},
       },
     });

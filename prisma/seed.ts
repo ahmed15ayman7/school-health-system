@@ -107,6 +107,9 @@ async function main() {
     { username: "social", fullName: "أخصائي اجتماعي", role: "SOCIAL_WORKER", clinicIdx: 0, hash: passwordHash },
     { username: "teacher1", fullName: "معلم مشرف", role: "TEACHER", clinicIdx: 1, hash: passwordHash },
     { username: "viewer", fullName: "مشاهد", role: "VIEWER", clinicIdx: 0, hash: passwordHash },
+    { username: "ehs", fullName: "مسؤول الأمن والسلامة", role: "EHS_OFFICER", clinicIdx: 0, hash: passwordHash },
+    { username: "executive", fullName: "المدير التنفيذي", role: "EXECUTIVE", clinicIdx: 0, hash: passwordHash },
+    { username: "deputy", fullName: "نائب إداري", role: "DEPUTY_ADMIN", clinicIdx: 1, hash: passwordHash },
   ];
 
   for (const u of users) {
@@ -377,10 +380,113 @@ async function main() {
     skipDuplicates: true,
   });
 
+  const ehsUser = await prisma.user.findUniqueOrThrow({ where: { username: "ehs" } });
+  const lab = await prisma.scienceLab.upsert({
+    where: { id: "00000000-0000-4000-8030-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8030-000000000001",
+      clinicId: clinics[5]!.id,
+      name: "مختبر كيمياء ثانوي",
+      labType: "CHEMISTRY",
+      building: "مبنى 6",
+    },
+  });
+  await prisma.labAsset.upsert({
+    where: { id: "00000000-0000-4000-8031-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8031-000000000001",
+      labId: lab.id,
+      assetType: "EYEWASH",
+      location: "مختبر 6/أ",
+      nextDueDate: new Date(Date.now() + 30 * 86400000),
+    },
+  });
+  await prisma.labChemical.createMany({
+    data: [
+      {
+        labId: lab.id,
+        name: "HCl 0.1M",
+        storageLocation: "خزانة A",
+        expiryDate: new Date(Date.now() + 120 * 86400000),
+      },
+    ],
+    skipDuplicates: true,
+  });
+  const waterDue = new Date();
+  waterDue.setMonth(waterDue.getMonth() + 6);
+  await prisma.waterQualityTest.upsert({
+    where: { id: "00000000-0000-4000-8032-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8032-000000000001",
+      siteName: "خزان المبنى الرئيسي",
+      testDate: new Date(),
+      nextDueDate: waterDue,
+      microbiologicalResult: "مطابق",
+      chemicalResult: "مطابق",
+    },
+  });
+  await prisma.professionalLicense.createMany({
+    data: [
+      {
+        holderType: "CLINIC",
+        holderName: clinics[1]!.name,
+        expiryDate: new Date(Date.now() + 45 * 86400000),
+      },
+    ],
+    skipDuplicates: true,
+  });
+  await prisma.canteenStaffHealthCertificate.createMany({
+    data: [
+      {
+        staffName: "عامل مقصف 1",
+        expiryDate: new Date(Date.now() + 90 * 86400000),
+      },
+    ],
+    skipDuplicates: true,
+  });
+  await prisma.safetyInspection.createMany({
+    data: [
+      {
+        clinicId: clinics[5]!.id,
+        inspectionType: "SCIENCE_CHEMISTRY",
+        location: lab.name,
+        inspectorId: ehsUser.id,
+        checklistJson: { eyewash: "ok", fumeHood: "ok" },
+        result: "compliant",
+        inspectionDate: new Date(),
+      },
+    ],
+    skipDuplicates: true,
+  });
+  const medOrder = await prisma.studentMedicationOrder.create({
+    data: {
+      studentId: students[0]!.id,
+      medicationName: "Insulin demo",
+      dose: "4",
+      unit: "units",
+      scheduleJson: { times: ["10:00", "14:00"], daysOfWeek: [0, 1, 2, 3, 4, 5, 6] },
+      requiresVitalsJson: { bloodSugar: true },
+      createdById: nurse.id,
+    },
+  });
+  const due1 = new Date();
+  due1.setHours(10, 0, 0, 0);
+  const due2 = new Date();
+  due2.setHours(14, 0, 0, 0);
+  await prisma.scheduledDose.createMany({
+    data: [
+      { orderId: medOrder.id, dueAt: due1, status: "PENDING" },
+      { orderId: medOrder.id, dueAt: due2, status: "PENDING" },
+    ],
+  });
+
   console.log("Seed completed:");
   console.log(`  ${students.length} students, ${DEMO_EMPLOYEES.length} employees`);
   console.log(`  ${visitDefs.length} visits, ${refDefs.length} referrals`);
-  console.log("  Login: admin / admin123  |  nurse.b / nurse123");
+  console.log("  Login: admin / admin123  |  nurse.b / nurse123  |  ehs / admin123  |  executive / admin123");
 }
 
 main()

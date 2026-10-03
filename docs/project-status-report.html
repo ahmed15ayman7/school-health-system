@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تقرير حالة المشروع</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: 'Cairo', 'Geeza Pro', 'Al Nile', system-ui, sans-serif;
+    color: #16233b; font-size: 10.2pt; line-height: 1.65;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  :root {
+    --navy:#0f2a5c; --navy2:#16357a; --teal:#0d9488; --teal2:#14b8a6;
+    --muted:#64748b; --border:#dde5ef; --bg:#f4f7fb;
+    --red:#dc2626; --amber:#d97706; --green:#16a34a;
+  }
+
+  /* ---------- Cover ---------- */
+  .cover {
+    height: 262mm; display:flex; flex-direction:column; justify-content:space-between;
+    background: linear-gradient(160deg, #0b1b3a 0%, #0f2a5c 45%, #0d3b52 100%);
+    color:#fff; border-radius:18px; padding:20mm 16mm; page-break-after: always;
+  }
+  .cover .kicker { font-size:11pt; font-weight:700; color:#8fe3d8; letter-spacing:.5px; }
+  .cover h1 { font-size:30pt; font-weight:900; line-height:1.3; margin:10px 0 6px; }
+  .cover h2 { font-size:14pt; font-weight:600; color:#c3d2ea; margin:0; }
+  .cover .rule { width:90px; height:5px; background:var(--teal2); border-radius:4px; margin:16px 0 0; }
+  .cover-toc { display:grid; grid-template-columns:1fr 1fr; gap:6px 18px; margin-top:22px; }
+  .cover-toc div { font-size:9.6pt; font-weight:600; color:#dbe6f7;
+                   border-top:1px solid rgba(255,255,255,.13); padding:7px 0 2px; }
+  .cover-toc div b { color:#5eead4; font-weight:900; margin-inline-end:7px; }
+  .cover-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .cover-stat { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+                border-radius:14px; padding:12px 10px; text-align:center; }
+  .cover-stat b { display:block; font-size:19pt; font-weight:900; color:#5eead4; }
+  .cover-stat span { font-size:8.6pt; color:#cbd9ee; font-weight:600; }
+  .cover-foot { font-size:9pt; color:#a9bdd9; display:flex; justify-content:space-between; }
+
+  /* ---------- Structure ---------- */
+  h3.sec {
+    font-size:15pt; font-weight:900; color:var(--navy); margin:0 0 10px;
+    padding-inline-start:12px; border-inline-start:6px solid var(--teal); line-height:1.4;
+  }
+  h4 { font-size:11pt; font-weight:800; color:var(--navy2); margin:14px 0 6px; }
+  p { margin:0 0 8px; }
+  section { page-break-inside: avoid; margin-bottom:16px; }
+  .page-break { page-break-before: always; }
+  .lead { color:#3d4d68; font-size:10pt; }
+
+  /* ---------- Cards ---------- */
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .card { border:1px solid var(--border); border-radius:12px; padding:11px 13px; background:#fff; }
+  .card.soft { background:var(--bg); }
+  .card h5 { margin:0 0 5px; font-size:10pt; font-weight:800; color:var(--navy); }
+  .card ul { margin:0; padding-inline-start:16px; }
+  .card li { margin-bottom:3px; }
+  ul { margin:0 0 8px; padding-inline-start:18px; }
+  li { margin-bottom:4px; }
+
+  /* ---------- Tables ---------- */
+  table { width:100%; border-collapse:collapse; font-size:9.3pt; margin:6px 0 4px; }
+  thead th {
+    background:var(--navy); color:#fff; font-weight:700; text-align:right;
+    padding:7px 9px; border:1px solid var(--navy);
+  }
+  tbody td { padding:6px 9px; border:1px solid var(--border); vertical-align:top; }
+  tbody tr:nth-child(even) td { background:#f8fafc; }
+  td.c, th.c { text-align:center; }
+
+  /* ---------- Bits ---------- */
+  .bar { height:8px; background:#e6ecf4; border-radius:6px; overflow:hidden; min-width:70px; }
+  .bar > i { display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,var(--teal2),var(--teal)); }
+  .bar.warn > i { background:linear-gradient(90deg,#fbbf24,#d97706); }
+  .bar.bad  > i { background:linear-gradient(90deg,#f87171,#dc2626); }
+  .pct { font-weight:800; font-size:8.8pt; color:var(--navy); }
+  .pill { display:inline-block; padding:1.5px 9px; border-radius:999px; font-size:8.3pt; font-weight:800; }
+  .p-done { background:#dcfce7; color:#15803d; }
+  .p-part { background:#fef3c7; color:#b45309; }
+  .p-none { background:#fee2e2; color:#b91c1c; }
+  .p-hi   { background:#fee2e2; color:#b91c1c; }
+  .p-mid  { background:#fef3c7; color:#b45309; }
+  .p-low  { background:#e0f2fe; color:#0369a1; }
+  code { font-family:'SF Mono',Menlo,monospace; font-size:8.6pt; background:#eef2f7;
+         padding:1px 5px; border-radius:5px; color:#0f3f63; direction:ltr; display:inline-block; }
+  .note { border-inline-start:5px solid var(--amber); background:#fffbeb;
+          padding:9px 12px; border-radius:0 10px 10px 0; font-size:9.4pt; }
+  .note.ok { border-color:var(--green); background:#f0fdf4; }
+  .note.bad { border-color:var(--red); background:#fef2f2; }
+  .foot { margin-top:18px; border-top:1px solid var(--border); padding-top:8px;
+          font-size:8.4pt; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div>
+    <div class="kicker">تقرير حالة المشروع</div>
+    <h1>منظومة الإدارة الطبية المركزية<br>والمقصف المدرسي</h1>
+    <h2>مجمع مدارس الأندلس الخاصة</h2>
+    <div class="rule"></div>
+    <p style="margin-top:18px;color:#c7d6ec;font-size:10.5pt;max-width:135mm;line-height:1.9">
+      منصة ويب عربية متكاملة لإدارة العيادات المدرسية: الملف الصحي للطالب والموظف، الزيارات والفرز،
+      تحويلات الطلاب، الطوارئ، صرف الأدوية والمخزون، تفتيش المقصف، الدعم النفسي والاجتماعي،
+      والتقارير التنفيذية — مع فصل كامل للصلاحيات وعزل بيانات كل عيادة.
+    </p>
+
+    <div class="cover-toc">
+      <div><b>١</b>الملخص التنفيذي</div>
+      <div><b>٥</b>ما تبقّى من العمل</div>
+      <div><b>٢</b>البنية التقنية</div>
+      <div><b>٦</b>الملاحظات والمخاطر</div>
+      <div><b>٣</b>ما تم إنجازه بالتفصيل</div>
+      <div><b>٧</b>خطة الإنجاز المقترحة</div>
+      <div><b>٤</b>نسبة الإنجاز حسب الوحدة</div>
+      <div><b>&nbsp;</b>جاهزية التسليم</div>
+    </div>
+  </div>
+
+  <div class="cover-stats">
+    <div class="cover-stat"><b>61</b><span>جدول بيانات</span></div>
+    <div class="cover-stat"><b>57</b><span>شاشة</span></div>
+    <div class="cover-stat"><b>12</b><span>دوراً وظيفياً</span></div>
+    <div class="cover-stat"><b>78%</b><span>نسبة الإنجاز</span></div>
+  </div>
+
+  <div class="cover-foot">
+    <span>إعداد: فريق التطوير</span>
+    <span>٣ أكتوبر ٢٠٢٦</span>
+  </div>
+</div>
+
+<!-- ============ 1. EXEC SUMMARY ============ -->
+<section>
+  <h3 class="sec">١. الملخص التنفيذي</h3>
+  <p class="lead">
+    اكتملت <b>النواة الطبية والتشغيلية للنظام</b> وهي جاهزة للتشغيل الفعلي: تسجيل الدخول والصلاحيات،
+    الملف الصحي، الزيارات، التحويلات، الطوارئ، صرف الأدوية، والمخزون — جميعها مبنية بمنطق أعمال حقيقي
+    مُتحقَّق منه ومربوط بقاعدة بيانات PostgreSQL، مع حزمة نشر Docker جاهزة.
+    المتبقي يتركّز في <b>وحدات مساندة</b> (السلامة، ورديات التمريض، التقارير القابلة للتصدير)
+    وفي <b>الربط الخارجي للرسائل</b> ورفع تغطية الاختبارات.
+  </p>
+
+  <div class="grid3" style="margin-top:12px">
+    <div class="card soft">
+      <h5>✔ جاهز للتشغيل</h5>
+      <ul>
+        <li>الزيارات والفرز الطبي</li>
+        <li>تحويلات الطلاب وتتبّع أزمنتها</li>
+        <li>الطوارئ والإشعار الفوري</li>
+        <li>صرف الأدوية والمخزون</li>
+        <li>الصلاحيات وعزل العيادات</li>
+      </ul>
+    </div>
+    <div class="card soft">
+      <h5>◑ منجز جزئياً</h5>
+      <ul>
+        <li>المقصف والنفسي والاجتماعي</li>
+        <li>التعاميم والإشعارات</li>
+        <li>التقارير (عرض بلا تصدير)</li>
+        <li>توصيات الموارد البشرية</li>
+      </ul>
+    </div>
+    <div class="card soft">
+      <h5>○ لم يبدأ بعد</h5>
+      <ul>
+        <li>السلامة (إسعاف / AED)</li>
+        <li>حضور وورديات التمريض</li>
+        <li>تصدير Excel / PDF</li>
+        <li>رفع المرفقات</li>
+        <li>إرسال SMS / WhatsApp فعلي</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. TECH ============ -->
+<section>
+  <h3 class="sec">٢. البنية التقنية</h3>
+  <table>
+    <thead><tr><th style="width:26%">الطبقة</th><th>التقنية المستخدمة</th></tr></thead>
+    <tbody>
+      <tr><td>الواجهة والخادم</td><td>Next.js 16 (App Router + Server Components) · React 19 · TypeScript 5</td></tr>
+      <tr><td>قاعدة البيانات</td><td>PostgreSQL · Prisma 6.19 · امتدادات pg_trgm و pgcrypto و uuid-ossp</td></tr>
+      <tr><td>المصادقة</td><td>Auth.js v5 بجلسات JWT · تشفير كلمات المرور بخوارزمية Argon2</td></tr>
+      <tr><td>التصميم</td><td>Tailwind 4 · دعم RTL كامل · خط Cairo · وضع ليلي · طباعة مُنسّقة</td></tr>
+      <tr><td>مكتبات مساندة</td><td>TanStack Query · Recharts · Zod · react-hook-form · QR (توليد ومسح) · ExcelJS</td></tr>
+      <tr><td>النشر</td><td>Docker متعدد المراحل · إخراج Next standalone · Nginx / Coolify · فحص صحة تلقائي</td></tr>
+      <tr><td>حجم العمل</td><td>‏128 ملف مصدري · ‏5,968 سطر برمجي · ‏14 خدمة أعمال · ‏61 جدولاً · ‏28 قائمة قيم</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 3. DONE ============ -->
+<div class="page-break"></div>
+<section>
+  <h3 class="sec">٣. ما تم إنجازه</h3>
+
+  <h4>٣.١ الأمان والصلاحيات — مكتمل</h4>
+  <ul>
+    <li><b>تسجيل دخول محصّن:</b> تشفير Argon2، و<b>قفل الحساب 15 دقيقة بعد 5 محاولات فاشلة</b>، وجلسة تنتهي بعد 30 دقيقة.</li>
+    <li><b>مصفوفة صلاحيات صريحة:</b> 12 دوراً (مدير النظام، المدير الطبي، رئيس التمريض، ممرض، صيدلية، مفتش مقصف، موارد بشرية، إدارة مدرسية، أخصائي نفسي، أخصائي اجتماعي، معلم، مُطّلع) × 20 مورداً × 6 صلاحيات.</li>
+    <li><b>عزل بيانات العيادات:</b> كل مستخدم يرى بيانات عيادته فقط، والأدوار المركزية وحدها ترى الجميع — وأي محاولة وصول مرفوضة <b>تُسجَّل في سجل التدقيق</b>.</li>
+    <li><b>سجل تدقيق غير قابل للتعديل:</b> حاجز على مستوى قاعدة البيانات يمنع تعديل أو حذف سجلات التدقيق نهائياً.</li>
+    <li>حماية جميع الصفحات والمسارات مركزياً + ترويسات أمان قياسية (HSTS، منع التضمين، منع تخمين نوع المحتوى).</li>
+  </ul>
+
+  <h4>٣.٢ الزيارات والفرز الطبي — مكتمل</h4>
+  <ul>
+    <li>ترقيم تسلسلي آمن للزيارات (<code>VIS-2026-000001</code>) داخل معاملة قاعدة بيانات تمنع التكرار.</li>
+    <li>فرز طبي بأربعة مستويات (منخفض / متوسط / عالٍ / طارئ) مع سبب الفرز والإجراء المتخذ.</li>
+    <li>‏16 سبب زيارة معرّباً + خانة «أخرى»، واختيار متعدد.</li>
+    <li><b>علامات حيوية بنطاقات طبية مُتحقَّق منها</b> (الحرارة 35–42، الضغط، النبض، التنفس، الأكسجين، السكر، الوزن، الطول).</li>
+    <li>حساب مدة الزيارة تلقائياً عند الإغلاق، و<b>قصر إغلاق الزيارات المفتوحة أكثر من 24 ساعة على رئيس التمريض فقط</b>.</li>
+  </ul>
+
+  <h4>٣.٣ تحويلات الطلاب — مكتمل</h4>
+  <ul>
+    <li>دورة حياة كاملة: <b>معلّق ← مستلَم ← تحت العلاج ← مكتمل</b>.</li>
+    <li>قياس زمني دقيق: مدة الانتظار، مدة العلاج، والمدة الإجمالية — تُحسب تلقائياً في كل مرحلة.</li>
+    <li><b>رصد التحويلات المتأخرة</b> (معلّق أكثر من 15 دقيقة) وعرضها في لوحة تتبّع مخصصة.</li>
+    <li>حماية ضد الازدواج عند الاستلام (مفتاح تفرّد) حتى لو ضُغط الزر مرتين أو انقطعت الشبكة.</li>
+    <li>إشعار ولي الأمر تلقائياً عند إنهاء التحويل.</li>
+  </ul>
+
+  <h4>٣.٤ الطوارئ — مكتمل</h4>
+  <ul>
+    <li>تسجيل الحالة بترقيم خاص مع الموقع والعلامات الحيوية والتدخلات والأدوية المستخدمة ومستوى الاستجابة.</li>
+    <li><b>إشعار فوري داخل النظام لجميع المديرين الطبيين ورؤساء التمريض</b> لحظة التسجيل.</li>
+    <li>إلزام مفتاح تفرّد للطلب — يستحيل تسجيل الحالة الطارئة مرتين بالخطأ.</li>
+  </ul>
+
+  <h4>٣.٥ صرف الأدوية (MAR) والمخزون — مكتمل (الوحدة الأدق تقنياً)</h4>
+  <ul>
+    <li><b>فحص الحساسية قبل الصرف:</b> مطابقة آلية بين حساسيات المريض واسم الدواء ومادته الفعالة — ويُرفض الصرف
+        ما لم يوجد <b>تجاوز صريح يُسجَّل باسم من أقرّه</b>.</li>
+    <li><b>صرف الدفعة الأقرب انتهاءً أولاً (FEFO)</b> مع قفل السجل في قاعدة البيانات لمنع التضارب عند الصرف المتزامن.</li>
+    <li>عملية واحدة ذرّية: خصم الكمية + سجل الصرف + حركة مخزون + قيد تدقيق — إما تتم كاملة أو تُلغى كلها.</li>
+    <li>سبعة أنواع لحركات المخزون، و<b>قصر التسويات الجردية على رئيس التمريض والصيدلية</b>.</li>
+    <li>تنبيهات تلقائية: كمية 5 فأقل، أو انتهاء صلاحية خلال 30 يوماً.</li>
+  </ul>
+
+  <h4>٣.٦ الملف الصحي والسجل الزمني — مكتمل</h4>
+  <ul>
+    <li>ملف طبي موحّد للطالب والموظف: الحساسيات، الأمراض المزمنة، الأدوية المستمرة، التطعيمات، قياسات النمو، فحص النظر، الإصابات.</li>
+    <li><b>شريط تنبيهات حمراء</b> يظهر للممرض فور فتح ملف أي طالب لديه حساسية أو مرض مزمن أو دواء مستمر.</li>
+    <li>خط زمني موحّد يدمج الزيارات والتحويلات والحساسيات والإصابات مرتبةً تاريخياً.</li>
+  </ul>
+
+  <h4>٣.٧ لوحات المؤشرات والبحث — مكتمل</h4>
+  <ul>
+    <li><b>لوحة تنفيذية:</b> زيارات اليوم، الحالات الطارئة، التحويلات المعلّقة، تنبيهات المخزون + رسم بياني لآخر 7 أيام.</li>
+    <li><b>مؤشرات أداء بأهداف ملوّنة:</b> متوسط الانتظار (هدف 10 د)، متوسط العلاج (هدف 20 د)، نسبة الإحالات الخارجية (هدف 5%).</li>
+    <li><b>لوحة لكل عيادة:</b> المفتوح والمغلق والمتأخر وأحدث الزيارات وتنبيهات النقص.</li>
+    <li><b>بحث عربي ضبابي سريع</b> مدعوم بفهارس متخصصة في قاعدة البيانات، مع فلاتر النوع والصف والعيادة.</li>
+    <li>رصد تلقائي <b>للطلاب المترددين</b> (3 زيارات فأكثر خلال 30 يوماً).</li>
+  </ul>
+
+  <h4>٣.٨ إدخال البيانات والواجهة</h4>
+  <ul>
+    <li><b>استيراد الطلاب من Excel</b> مع قبول رؤوس الأعمدة بالعربية والإنجليزية، وتقرير مفصّل: المضاف، المحدَّث، المرفوض، وسبب رفض كل صف.</li>
+    <li><b>رموز QR:</b> توليد وطباعة للطلاب + <b>مسح بالكاميرا</b> لفتح ملف الطالب مباشرة.</li>
+    <li>‏57 شاشة عربية (RTL) بتصميم موحّد، وجدول ذكي عام يدعم التبديل بين عرض القائمة والبطاقات مع حفظ تفضيل المستخدم.</li>
+    <li>تطبيق ويب قابل للتثبيت على الجوال (PWA) مع تخزين مؤقت للعمل عند ضعف الشبكة.</li>
+    <li>صفحات طباعة مخصصة — ومنها <b>طباعة التوصية الطبية للموارد البشرية دون أي سرد سريري</b> حفاظاً على خصوصية الموظف.</li>
+  </ul>
+
+  <h4>٣.٩ النشر والتشغيل — جاهز</h4>
+  <ul>
+    <li>حزمة Docker محسّنة متعددة المراحل، تعمل بمستخدم غير جذري، مع <b>تثبيت خطوط عربية داخل الحاوية</b> لضمان سلامة الطباعة.</li>
+    <li>فحص صحة تلقائي للحاوية، ودليل نشر خطوة بخطوة لـ Nginx و Coolify، وسكربتات نسخ احتياطي واسترجاع.</li>
+    <li>بيانات تجريبية جاهزة (مدرسة، عيادات، مستخدمون بأدوار مختلفة، طلاب، زيارات، تحويلات، أدوية) لتشغيل عرض فوري.</li>
+  </ul>
+</section>
+
+<!-- ============ 4. PROGRESS TABLE ============ -->
+<div class="page-break"></div>
+<section>
+  <h3 class="sec">٤. نسبة الإنجاز حسب الوحدة</h3>
+  <table>
+    <thead>
+      <tr><th style="width:23%">الوحدة</th><th class="c" style="width:12%">الحالة</th>
+          <th class="c" style="width:21%">الإنجاز</th><th>الملاحظة</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>الأمان والصلاحيات</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:100%"></i></div></td><td>مصفوفة أدوار كاملة + عزل عيادات + تدقيق محصّن</td></tr>
+      <tr><td>الزيارات والفرز</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:100%"></i></div></td><td>منطق كامل مع تحقق طبي وقيود صلاحية</td></tr>
+      <tr><td>تحويلات الطلاب</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:100%"></i></div></td><td>دورة حياة وأزمنة ورصد تأخر</td></tr>
+      <tr><td>الطوارئ</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:95%"></i></div></td><td>يتبقّى ربط إشعار خارجي فوري</td></tr>
+      <tr><td>صرف الأدوية والمخزون</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:100%"></i></div></td><td>فحص حساسية + FEFO + معاملات ذرّية</td></tr>
+      <tr><td>الملف الصحي</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:95%"></i></div></td><td>يتبقّى شاشات تحرير بعض الأقسام</td></tr>
+      <tr><td>لوحات المؤشرات</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:90%"></i></div></td><td>قابلة للتوسعة برسوم إضافية</td></tr>
+      <tr><td>استيراد Excel و QR</td><td class="c"><span class="pill p-done">مكتمل</span></td>
+        <td><div class="bar"><i style="width:95%"></i></div></td><td>يتبقّى طباعة QR بالجملة</td></tr>
+      <tr><td>المقصف والسلامة الغذائية</td><td class="c"><span class="pill p-part">جزئي</span></td>
+        <td><div class="bar warn"><i style="width:65%"></i></div></td><td>التفتيش والحوادث تعمل؛ التقارير والمتابعة ناقصة</td></tr>
+      <tr><td>النفسي والاجتماعي</td><td class="c"><span class="pill p-part">جزئي</span></td>
+        <td><div class="bar warn"><i style="width:60%"></i></div></td><td>الجلسات والحالات تعمل؛ المقاييس النفسية غير مفعّلة</td></tr>
+      <tr><td>التعاميم والإشعارات</td><td class="c"><span class="pill p-part">جزئي</span></td>
+        <td><div class="bar warn"><i style="width:60%"></i></div></td><td>داخل النظام يعمل؛ لا إرسال خارجي</td></tr>
+      <tr><td>توصيات الموارد البشرية</td><td class="c"><span class="pill p-part">جزئي</span></td>
+        <td><div class="bar warn"><i style="width:55%"></i></div></td><td>الاعتماد والطباعة يعملان؛ تحتاج شاشة متابعة</td></tr>
+      <tr><td>التقارير والتصدير</td><td class="c"><span class="pill p-none">ناقص</span></td>
+        <td><div class="bar bad"><i style="width:20%"></i></div></td><td>لا تصدير Excel/PDF — الطباعة فقط</td></tr>
+      <tr><td>حضور وورديات التمريض</td><td class="c"><span class="pill p-none">لم يبدأ</span></td>
+        <td><div class="bar bad"><i style="width:15%"></i></div></td><td>الجداول جاهزة، لا واجهات ولا منطق</td></tr>
+      <tr><td>السلامة (إسعاف / AED)</td><td class="c"><span class="pill p-none">لم يبدأ</span></td>
+        <td><div class="bar bad"><i style="width:15%"></i></div></td><td>الجداول جاهزة، الشاشات هياكل فارغة</td></tr>
+      <tr><td>رفع المرفقات</td><td class="c"><span class="pill p-none">لم يبدأ</span></td>
+        <td><div class="bar bad"><i style="width:10%"></i></div></td><td>الجدول ومسار التخزين مهيّآن فقط</td></tr>
+      <tr><td>الاختبارات الآلية</td><td class="c"><span class="pill p-none">ناقص</span></td>
+        <td><div class="bar bad"><i style="width:10%"></i></div></td><td>ملفا اختبار فقط لا يغطيان الوحدات الحرجة</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 5. REMAINING ============ -->
+<div class="page-break"></div>
+<section>
+  <h3 class="sec">٥. ما تبقّى من العمل</h3>
+  <table>
+    <thead>
+      <tr><th class="c" style="width:6%">#</th><th style="width:27%">البند</th>
+          <th class="c" style="width:11%">الأولوية</th><th class="c" style="width:12%">الجهد التقديري</th><th>الوصف</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="c">1</td><td><b>تصدير التقارير</b></td><td class="c"><span class="pill p-hi">عالية</span></td><td class="c">3–4 أيام</td>
+        <td>خمس شاشات تقارير (طبي، مخزون، مقصف، موظفين، عام) تعرض بيانات وهمية حالياً. المطلوب: نقاط بيانات حقيقية + تصدير Excel و PDF.</td></tr>
+      <tr><td class="c">2</td><td><b>وحدة السلامة</b></td><td class="c"><span class="pill p-hi">عالية</span></td><td class="c">3–4 أيام</td>
+        <td>حقائب الإسعاف ومحتوياتها، أجهزة AED وتواريخ صيانتها، جولات التفتيش الدورية — مع تنبيهات انتهاء الصلاحية.</td></tr>
+      <tr><td class="c">3</td><td><b>حضور وورديات التمريض</b></td><td class="c"><span class="pill p-hi">عالية</span></td><td class="c">2–3 أيام</td>
+        <td>جدولة الورديات، تسجيل الحضور والانصراف والإجازات، وتقرير التغطية لكل عيادة.</td></tr>
+      <tr><td class="c">4</td><td><b>الربط الفعلي للرسائل</b></td><td class="c"><span class="pill p-hi">عالية</span></td><td class="c">2–3 أيام</td>
+        <td>رسائل أولياء الأمور محاكاة فقط تُخزَّن في قاعدة البيانات. المطلوب: ربط مزوّد SMS/WhatsApp + إعادة محاولة عند الفشل.</td></tr>
+      <tr><td class="c">5</td><td><b>رفع المرفقات</b></td><td class="c"><span class="pill p-mid">متوسطة</span></td><td class="c">2 يوم</td>
+        <td>رفع التقارير الطبية وصور الإصابات وتقارير التفتيش، مع التحقق من النوع والحجم وربطها بالسجل.</td></tr>
+      <tr><td class="c">6</td><td><b>إكمال شاشات الإعدادات</b></td><td class="c"><span class="pill p-mid">متوسطة</span></td><td class="c">2 يوم</td>
+        <td>إدارة المستخدمين (إضافة/تعطيل/إعادة تعيين كلمة مرور)، إدارة العيادات، والملف الشخصي.</td></tr>
+      <tr><td class="c">7</td><td><b>المقاييس النفسية</b></td><td class="c"><span class="pill p-mid">متوسطة</span></td><td class="c">2 يوم</td>
+        <td>تفعيل أدوات التقييم المعرَّفة (GAD-7، PHQ-9، مقياس ADHD) باحتساب الدرجات وتفسيرها.</td></tr>
+      <tr><td class="c">8</td><td><b>طباعة QR بالجملة</b></td><td class="c"><span class="pill p-low">منخفضة</span></td><td class="c">1 يوم</td>
+        <td>توليد صفحات بطاقات QR لفصل أو مرحلة كاملة بتنسيق جاهز للطباعة على ورق الملصقات.</td></tr>
+      <tr><td class="c">9</td><td><b>رفع تغطية الاختبارات</b></td><td class="c"><span class="pill p-hi">عالية</span></td><td class="c">3–4 أيام</td>
+        <td>تغطية الوحدات الحرجة: صرف الأدوية وفحص الحساسية، إغلاق الزيارات، عزل العيادات، مفاتيح التفرّد.</td></tr>
+      <tr><td class="c">10</td><td><b>إعادة هيكلة طبقة الـ API</b></td><td class="c"><span class="pill p-mid">متوسطة</span></td><td class="c">2–3 أيام</td>
+        <td>منطق التوجيه حالياً سلسلة شروط طويلة تعتمد على مطابقة نصية للمسار؛ فصلها إلى وحدات يقلّل مخاطر الصيانة.</td></tr>
+      <tr><td class="c">11</td><td><b>تفعيل الحذف الناعم مركزياً</b></td><td class="c"><span class="pill p-mid">متوسطة</span></td><td class="c">1 يوم</td>
+        <td>آلية إخفاء المحذوف مكتوبة لكنها غير مُفعّلة على مستوى قاعدة البيانات، ويُستعاض عنها بترشيح يدوي في كل استعلام — ما يفتح باب السهو.</td></tr>
+      <tr><td class="c">12</td><td><b>تحسينات تشغيلية</b></td><td class="c"><span class="pill p-low">منخفضة</span></td><td class="c">2 يوم</td>
+        <td>تحديث دوري تلقائي لمؤشرات المترددين، أرشفة سجلات التدقيق، ومهمة نسخ احتياطي مجدولة.</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px"><b>إجمالي الجهد التقديري المتبقي: 25–31 يوم عمل</b> (نحو 5–6 أسابيع لمطوّر واحد، أو 3 أسابيع لمطوّرَين).</p>
+</section>
+
+<!-- ============ 6. RISKS ============ -->
+<section>
+  <h3 class="sec">٦. ملاحظات ومخاطر تستحق الانتباه</h3>
+
+  <div class="note bad">
+    <b>الرسائل لأولياء الأمور غير مُرسَلة فعلياً.</b>
+    النظام يسجّل الرسالة بحالة «محاكاة» ولا يُرسلها. يجب إبلاغ الإدارة بوضوح أن إشعار ولي الأمر
+    لا يصل حالياً، حتى يتم ربط مزوّد الخدمة — وإلا قد يُبنى اعتماد تشغيلي على خاصية لا تعمل.
+  </div>
+
+  <div class="note" style="margin-top:9px">
+    <b>شاشات تعرض بيانات غير حقيقية.</b>
+    ‏13 شاشة (التقارير الخمس، السلامة الثلاث، ورديات وحضور التمريض، الإعدادات، طباعة QR)
+    مربوطة بنقطة فحص الصحة كمصدر مؤقت. يُفضَّل إخفاؤها من القائمة الجانبية قبل التسليم الأول
+    لتجنّب انطباع خاطئ لدى المستخدمين.
+  </div>
+
+  <div class="note" style="margin-top:9px">
+    <b>الحذف الناعم يعتمد على انضباط المطوّر.</b>
+    الترشيح يدوي في كل استعلام بدل أن يكون مركزياً — أي استعلام جديد يُنسى فيه الشرط سيُظهر سجلات محذوفة.
+  </div>
+
+  <div class="note ok" style="margin-top:9px">
+    <b>نقاط قوة ينبغي الحفاظ عليها:</b>
+    منطق صرف الدواء مكتوب بمستوى احترافي (فحص حساسية، صرف الأقرب انتهاءً، قفل سجلات، معاملات ذرّية)،
+    وسجل التدقيق محمي على مستوى قاعدة البيانات نفسها، وعزل بيانات العيادات مطبّق في كل طبقات النظام.
+  </div>
+</section>
+
+<!-- ============ 7. ROADMAP ============ -->
+<section>
+  <h3 class="sec">٧. خطة الإنجاز المقترحة</h3>
+  <div class="grid2">
+    <div class="card">
+      <h5>المرحلة الأولى — أسبوعان · إطلاق تشغيلي</h5>
+      <ul>
+        <li>إخفاء الشاشات غير المكتملة من القائمة</li>
+        <li>ربط مزوّد الرسائل الفعلي</li>
+        <li>تصدير Excel و PDF للتقارير الأساسية</li>
+        <li>اختبارات الوحدات الحرجة (الصرف والزيارات)</li>
+        <li>تدريب الممرضين على الزيارات والتحويلات</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h5>المرحلة الثانية — أسبوعان · اكتمال الوحدات</h5>
+      <ul>
+        <li>وحدة السلامة كاملة</li>
+        <li>حضور وورديات التمريض</li>
+        <li>رفع المرفقات</li>
+        <li>إكمال شاشات الإعدادات</li>
+        <li>المقاييس النفسية</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h5>المرحلة الثالثة — أسبوع · تحسين وصيانة</h5>
+      <ul>
+        <li>إعادة هيكلة طبقة الـ API</li>
+        <li>تفعيل الحذف الناعم مركزياً</li>
+        <li>النسخ الاحتياطي المجدول والأرشفة</li>
+        <li>طباعة QR بالجملة</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h5>جاهزية التسليم الحالية</h5>
+      <p style="margin:6px 0 4px;font-size:9.4pt">
+        النظام <b>قابل للتشغيل اليوم</b> للعمليات اليومية الأساسية في العيادة:
+        استقبال الطالب، الفرز، تسجيل العلامات الحيوية، صرف الدواء، التحويل، وإغلاق الزيارة —
+        بشرط إخفاء الوحدات غير المكتملة وتوضيح أن إشعارات أولياء الأمور لم تُفعَّل بعد.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  منظومة الإدارة الطبية المركزية والمقصف المدرسي — مجمع مدارس الأندلس الخاصة · تقرير حالة المشروع · ٣ أكتوبر ٢٠٢٦
+</div>
+
+</body>
+</html>

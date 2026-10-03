@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
+import { isDispenseBlocked } from "@/lib/expiry-policy";
 import type { ActorContext } from "@/server/context";
-import type { VisitorType, OwnerType } from "@prisma/client";
+import type { VisitorType, OwnerType, Prisma } from "@prisma/client";
 
 export async function administerMedication(input: {
   actor: ActorContext;
@@ -13,6 +14,8 @@ export async function administerMedication(input: {
   unit: string;
   reason?: string;
   allergyOverride?: boolean;
+  scheduledDoseId?: string;
+  vitalsJson?: Prisma.InputJsonValue;
 }) {
   const ownerType: OwnerType = input.visitorType === "STUDENT" ? "STUDENT" : "EMPLOYEE";
   const profile = await prisma.medicalProfile.findUnique({
@@ -44,6 +47,11 @@ export async function administerMedication(input: {
       : locked[0];
     if (!batchRow || batchRow.quantity < 1) throw new Error("INSUFFICIENT_STOCK");
 
+    const batchMeta = await tx.medicationBatch.findUnique({ where: { id: batchRow.id } });
+    if (batchMeta && isDispenseBlocked(batchMeta.expiryDate)) {
+      throw new Error("EXPIRY_BLOCKED");
+    }
+
     await tx.medicationBatch.update({
       where: { id: batchRow.id },
       data: { quantity: { decrement: 1 } },
@@ -62,8 +70,17 @@ export async function administerMedication(input: {
         reason: input.reason,
         nurseId: input.actor.userId,
         allergyOverride: !!input.allergyOverride,
+        scheduledDoseId: input.scheduledDoseId,
+        vitalsJson: input.vitalsJson,
       },
     });
+
+    if (input.scheduledDoseId) {
+      await tx.scheduledDose.update({
+        where: { id: input.scheduledDoseId },
+        data: { status: "ADMINISTERED" },
+      });
+    }
 
     await tx.inventoryTransaction.create({
       data: {

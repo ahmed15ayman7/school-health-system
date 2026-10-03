@@ -39,6 +39,15 @@ UPLOAD_DIR=/app/uploads
 
 Seed (اختياري): من جهازك المحلي بنفس `DATABASE_URL` العام (إن متاح) أو من Terminal في Coolify بعد تثبيت أدوات التطوير — الأسهل: `npm run db:seed` محلياً ضد DB إذا المنفذ مفتوح.
 
+## Cron (Coolify Scheduled Tasks)
+
+| URL | Header |
+|-----|--------|
+| `POST /api/v1/jobs/dose-reminders` | `x-cron-secret: $CRON_SECRET` |
+| `POST /api/v1/jobs/compliance-alerts` | نفس السر |
+
+اضبط `CRON_SECRET` في Environment Variables.
+
 ## ERR_FAILED في المتصفح
 
 1. **Logs** في Coolify — هل `node server.js` يعمل؟ أخطاء Prisma؟
